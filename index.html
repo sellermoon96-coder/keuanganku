@@ -573,14 +573,13 @@ tbody tr:hover td { background: color-mix(in srgb, var(--ac) 6%, transparent); }
 </footer>
 
 <script type="module">
-  // Import the functions you need from the SDKs you need
+  // ==========================================
+  // INISIALISASI FIREBASE SDK (CDN MODULAR v13.2.0)
+  // ==========================================
   import { initializeApp } from "https://www.gstatic.com/firebasejs/13.2.0/firebase-app.js";
   import { getAnalytics } from "https://www.gstatic.com/firebasejs/13.2.0/firebase-analytics.js";
-  // TODO: Add SDKs for Firebase products that you want to use
-  // https://firebase.google.com/docs/web/setup#available-libraries
+  import { getFirestore, collection, getDocs } from "https://www.gstatic.com/firebasejs/13.2.0/firebase-firestore.js";
 
-  // Your web app's Firebase configuration
-  // For Firebase JS SDK v7.20.0 and later, measurementId is optional
   const firebaseConfig = {
     apiKey: "AIzaSyD_BlrzmpWNx2jYlJ9Pk_RVxy74J3dfJzY",
     authDomain: "keuanganku-6fa95.firebaseapp.com",
@@ -592,11 +591,17 @@ tbody tr:hover td { background: color-mix(in srgb, var(--ac) 6%, transparent); }
     measurementId: "G-H091SE5KY5"
   };
 
-  // Initialize Firebase
+  // Initialize Firebase & Firestore
   const app = initializeApp(firebaseConfig);
   const analytics = getAnalytics(app);
+  const dbFirestore = getFirestore(app);
 
-console.log("Firebase berhasil diinisialisasi pada aplikasi web Keuangan Elzamora!");
+  console.log("Firebase berhasil diinisialisasi pada aplikasi web Keuangan Elzamora!");
+
+  // Membuat variabel global agar bisa diakses fungsi aplikasi keuangan di bawah
+  window.dbFirestore = dbFirestore;
+  window.getDocsCollection = getDocs;
+  window.firebaseCollection = collection;
 
 // ------------------------------------------
 // KODE UTAMA APLIKASI KEUANGAN
@@ -834,7 +839,7 @@ function simpanLokal() {
   syncOnline();
 }
 
-let DB = null, ONLINE = false, SYNC = {}, tmrSync = null;
+let ONLINE = false, SYNC = {}, tmrSync = null;
 const setStatus = (t, bad) => { const e = document.getElementById("sync"); if (e) e.innerHTML = (bad ? "🔴 " : ONLINE ? "🟢 " : "⚪ ") + esc(t); };
 function DOCS() {
   const o = {
@@ -848,7 +853,7 @@ function DOCS() {
 }
 function syncOnline() {
   clearTimeout(tmrSync);
-  if (!DB) return;
+  if (!window.dbFirestore) return;
   setStatus("Menyimpan ke online…");
   tmrSync = setTimeout(async () => {
     try {
@@ -857,7 +862,7 @@ function syncOnline() {
         const j = JSON.stringify(o[path]);
         if (SYNC[path] === j) continue;
         const parts = path.split("/");
-        await dbFirestore.collection(parts[0]).doc(parts[1]).set(o[path]);
+        await window.dbFirestore.collection(parts[0]).doc(parts[1]).set(o[path]);
         SYNC[path] = j;
       }
       setStatus("Tersambung · data tersimpan online (" + new Date().toLocaleTimeString("id-ID") + ")");
@@ -885,8 +890,8 @@ let MP = {};
 async function sambungOnline() {
   try {
     const [kSnap, pjSnap] = await Promise.all([
-      getDocs(collection(dbFirestore, "keuangan")),
-      getDocs(collection(dbFirestore, "penjualan"))
+      window.getDocsCollection(window.firebaseCollection(window.dbFirestore, "keuangan")),
+      window.getDocsCollection(window.firebaseCollection(window.dbFirestore, "penjualan"))
     ]);
     JR = []; P = []; BE = []; HP = []; CA = []; OP = []; MP = {}; SYNC = {};
     INV = ["MUS", "HAS", "MFS60", "MFS100", "RC10", "HAS-3"].map(c => ({ sku: c, nama: (SKUS.find(x => x.sku == c) || {}).nama || c, stok: 0, hrg: 0 }));
@@ -901,7 +906,7 @@ async function sambungOnline() {
       terapkanDoc("penjualan/" + doc.id, doc.data());
     });
 
-    DB = dbFirestore; ONLINE = true;
+    ONLINE = true;
     rebuildAK();
     const bd = document.getElementById("btn-demo"); if (bd) bd.style.display = "none";
     setStatus("Tersambung · " + (ada ? "data online dimuat dari Firebase" : "belum ada data online, mulai dari kosong"));
