@@ -909,7 +909,7 @@ async function sambungOnline() {
     ONLINE = true;
     rebuildAK();
     const bd = document.getElementById("btn-demo"); if (bd) bd.style.display = "none";
-    setStatus("Tersambung · " + (ada ? "data online dimuat dari Firebase" : "belum ada data online, mulai dari kosong"));
+    setStatus("Tersambung · " + (ada ? "0" : "0"));
     if (!ada) syncOnline();
     return true;
   } catch (e) {
