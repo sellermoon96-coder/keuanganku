@@ -573,10 +573,7 @@ tbody tr:hover td { background: color-mix(in srgb, var(--ac) 6%, transparent); }
 </footer>
 
 <script type="module">
-// ==========================================
-// INISIALISASI FIREBASE SDK (CDN MODULAR)
-// ==========================================
-// Import the functions you need from the SDKs you need
+  // Import the functions you need from the SDKs you need
   import { initializeApp } from "https://www.gstatic.com/firebasejs/13.2.0/firebase-app.js";
   import { getAnalytics } from "https://www.gstatic.com/firebasejs/13.2.0/firebase-analytics.js";
   // TODO: Add SDKs for Firebase products that you want to use
@@ -595,10 +592,9 @@ tbody tr:hover td { background: color-mix(in srgb, var(--ac) 6%, transparent); }
     measurementId: "G-H091SE5KY5"
   };
 
-// Inisialisasi Firebase
-const app = initializeApp(firebaseConfig);
-const analytics = getAnalytics(app);
-const dbFirestore = getFirestore(app);
+  // Initialize Firebase
+  const app = initializeApp(firebaseConfig);
+  const analytics = getAnalytics(app);
 
 console.log("Firebase berhasil diinisialisasi pada aplikasi web Keuangan Elzamora!");
 
