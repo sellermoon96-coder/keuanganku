@@ -578,7 +578,7 @@ tbody tr:hover td { background: color-mix(in srgb, var(--ac) 6%, transparent); }
   // ==========================================
   import { initializeApp } from "https://www.gstatic.com/firebasejs/13.2.0/firebase-app.js";
   import { getAnalytics } from "https://www.gstatic.com/firebasejs/13.2.0/firebase-analytics.js";
-  import { getFirestore, collection, getDocs } from "https://www.gstatic.com/firebasejs/13.2.0/firebase-firestore.js";
+  import { getFirestore, collection, getDocs, doc, setDoc } from "https://www.gstatic.com/firebasejs/13.2.0/firebase-firestore.js";
 
   const firebaseConfig = {
     apiKey: "AIzaSyD_BlrzmpWNx2jYlJ9Pk_RVxy74J3dfJzY",
@@ -598,10 +598,12 @@ tbody tr:hover td { background: color-mix(in srgb, var(--ac) 6%, transparent); }
 
   console.log("Firebase berhasil diinisialisasi pada aplikasi web Keuangan Elzamora!");
 
-  // Membuat variabel global agar bisa diakses fungsi aplikasi keuangan di bawah
+  // Daftarkan ke window agar bisa diakses global oleh fungsi aplikasi keuangan
   window.dbFirestore = dbFirestore;
   window.getDocsCollection = getDocs;
   window.firebaseCollection = collection;
+  window.firebaseDoc = doc;
+  window.firebaseSetDoc = setDoc;
 
 // ------------------------------------------
 // KODE UTAMA APLIKASI KEUANGAN
@@ -862,7 +864,8 @@ function syncOnline() {
         const j = JSON.stringify(o[path]);
         if (SYNC[path] === j) continue;
         const parts = path.split("/");
-        await window.dbFirestore.collection(parts[0]).doc(parts[1]).set(o[path]);
+        const docRef = window.firebaseDoc(window.firebaseCollection(window.dbFirestore, parts[0]), parts[1]);
+        await window.firebaseSetDoc(docRef, o[path]);
         SYNC[path] = j;
       }
       setStatus("Tersambung · data tersimpan online (" + new Date().toLocaleTimeString("id-ID") + ")");
