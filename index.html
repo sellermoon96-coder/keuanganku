@@ -2161,15 +2161,15 @@ function jr() {
       <label>Terkait hutang/piutang
         <select id="j-ref">
           <option value="">Tidak ada</option>
-          <option value="custom_piutang">✏️ Masukkan No. Piutang Manual (Kustom)</option>
-          <option value="custom_hutang">✏️ Masukkan No. Hutang Manual (Kustom)</option>
+          <option value="custom_piutang">✏️ Masukkan No. Piutang</option>
+          <option value="custom_hutang">✏️ Masukkan No. Hutang</option>
           ${piutangShopeeOpts ? `<optgroup label="Piutang Shopee per Toko & Bulan">${piutangShopeeOpts}</optgroup>` : ""}
           ${piutangManualOpts ? `<optgroup label="Piutang Manual">${piutangManualOpts}</optgroup>` : ""}
           ${hutangOpts ? `<optgroup label="Hutang">${hutangOpts}</optgroup>` : ""}
         </select>
       </label>
       <div id="j-custom-ref-wrap" style="display:none;grid-column:span 2">
-        <label>Ketik No. Piutang / Hutang Manual (Jika no. sama maka otomatis gabung):
+        <label>Ketik No. Piutang / Hutang Manual:
           <input id="j-custom-ref" placeholder="Contoh: PU-JV-202610 atau H-001" autocomplete="off">
         </label>
       </div>
