@@ -583,7 +583,7 @@ tbody tr:hover td { background: color-mix(in srgb, var(--ac) 6%, transparent); }
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/13.2.0/firebase-app.js";
   import { getAnalytics } from "https://www.gstatic.com/firebasejs/13.2.0/firebase-analytics.js";
-  import { getFirestore, collection, getDocs, doc, setDoc } from "https://www.gstatic.com/firebasejs/13.2.0/firebase-firestore.js";
+  import { getFirestore, collection, getDocs, doc, setDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/13.2.0/firebase-firestore.js";
 
   const firebaseConfig = {
     apiKey: "AIzaSyD_BlrzmpWNx2jYlJ9Pk_RVxy74J3dfJzY",
@@ -611,6 +611,7 @@ tbody tr:hover td { background: color-mix(in srgb, var(--ac) 6%, transparent); }
   window.firebaseCollection = collection;
   window.firebaseDoc = doc;
   window.firebaseSetDoc = setDoc;
+  window.firebaseDeleteDoc = deleteDoc;
 
 const hariIni = () => { const d = new Date(); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); };
 const dt = x => new Date(String(x).slice(0, 10) + "T00:00:00");
@@ -1059,6 +1060,7 @@ function muatDataDemo(silent = false) {
 
   S.thn = 2026;
   S.bln = "ytd";
+  localStorage.removeItem("elzamora_sudah_direset");
   simpanLokal();
   if (!silent) {
     info = "Data contoh Laporan Keuangan 4Q26 berhasil dimuat! Semua grafik, jurnal otomatis, dan neraca kini terisi.";
@@ -3683,17 +3685,45 @@ function bindD() {
   document.getElementById("btn-load-demo").onclick = mintaDemo;
   document.getElementById("btn-reset").onclick = async () => {
     const jml = JR.length + P.length + BE.length + HP.length + CA.length + OP.length;
-    const ok = await konfirmasi({ judul: "Kosongkan semua transaksi?", isi: "Akan menghapus <b>" + jml.toLocaleString("id-ID") + "</b> catatan (jurnal, penjualan, pembelian, hutang/piutang, pencairan, stock opname)" + (ONLINE ? " <b>juga dari penyimpanan online</b>" : "") + ". Master akun dan SKU tetap ada. Tindakan ini tidak bisa dibatalkan.", ya: "Ya, kosongkan", bahaya: true, cadangan: true, kata: "KOSONGKAN" });
+    const ok = await konfirmasi({ judul: "Kosongkan semua transaksi?", isi: "Akan menghapus <b>" + jml.toLocaleString("id-ID") + "</b> catatan (jurnal, penjualan, pembelian, hutang/piutang, pencairan, stock opname)" + (ONLINE ? " <b>juga dari penyimpanan online Firebase</b>" : "") + ". Master akun dan SKU tetap ada. Tindakan ini tidak bisa dibatalkan.", ya: "Ya, kosongkan", bahaya: true, cadangan: true, kata: "KOSONGKAN" });
     if (!ok) return;
+
+    // Bersihkan koleksi di Firestore agar tidak disinkronkan kembali
+    if (window.dbFirestore && window.firebaseDeleteDoc) {
+      try {
+        const [kSnap, pjSnap] = await Promise.all([
+          window.getDocsCollection(window.firebaseCollection(window.dbFirestore, "keuangan")),
+          window.getDocsCollection(window.firebaseCollection(window.dbFirestore, "penjualan"))
+        ]);
+        const hapusPromises = [];
+        kSnap.forEach(d => {
+          if (d.id !== "setup") {
+            hapusPromises.push(window.firebaseDeleteDoc(d.ref));
+          }
+        });
+        pjSnap.forEach(d => {
+          hapusPromises.push(window.firebaseDeleteDoc(d.ref));
+        });
+        await Promise.all(hapusPromises);
+      } catch (err) {
+        console.warn("Gagal membersihkan data online:", err);
+      }
+    }
+
     JR = [];
     P = [];
     BE = [];
     HP = [];
     CA = [];
     OP = [];
+    MP = {};
+    SYNC = {};
     S.opDraft = {};
+    // Nol-kan stok kartu persediaan tanpa menghapus SKU
+    INV.forEach(i => { i.stok = 0; });
+    localStorage.setItem("elzamora_sudah_direset", "true");
     simpanLokal();
-    info = "Semua transaksi berhasil dikosongkan. Master Akun dan SKU tetap tersimpan.";
+    info = "Semua transaksi berhasil dikosongkan. Master Akun, SKU, dan Kartu Persediaan (stok 0) tetap tersimpan.";
     S.tab = "dash";
     draw();
   };
@@ -4021,9 +4051,12 @@ function mulai() {
   setStatus("Menghubungkan ke Firebase Firestore…");
   draw();
   sambungOnline().then(ok => {
+    const sudahReset = localStorage.getItem("elzamora_sudah_direset") === "true";
     if (!ok) {
       setStatus("Mode offline · data lokal", true);
-      if (!ada || (P.length === 0 && JR.length === 0)) muatDataDemo(true);
+      if (!ada && !sudahReset) {
+        muatDataDemo(true);
+      }
     }
     draw();
   });
