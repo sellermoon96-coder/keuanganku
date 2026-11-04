@@ -544,6 +544,46 @@ svg text { fill: var(--mut); font-size: 11px; }
   font-size: 13.5px;
 }
 
+/* Compact & Sticky Table Styles untuk Kartu Persediaan */
+.tbl-compact {
+  font-size: 12.5px;
+}
+.tbl-compact th, .tbl-compact td {
+  padding: 6px 7px;
+}
+.sticky-col-right {
+  position: sticky;
+  right: 0;
+  background: var(--sf);
+  z-index: 3;
+  box-shadow: -2px 0 5px rgba(0,0,0,0.04);
+}
+th.sticky-col-right {
+  background: var(--sf2);
+  z-index: 4;
+}
+tr:hover .sticky-col-right {
+  background: var(--sf2);
+}
+.cell-sku-nama {
+  max-width: 200px;
+  min-width: 150px;
+  white-space: normal;
+  word-break: break-word;
+  line-height: 1.3;
+}
+.cell-sku-nama b {
+  display: inline-block;
+  font-size: 12px;
+  color: var(--ink);
+}
+.cell-sku-nama small {
+  display: block;
+  font-size: 11px;
+  color: var(--mut);
+  margin-top: 2px;
+}
+
 @media print {
   header, .bar, .no-print, #gd-wrap { display: none !important; }
   body { background: #fff; color: #000; }
@@ -1072,7 +1112,7 @@ function banner() {
   if (!info) return "";
   return `<div class="toast-banner" role="status">
     <span>${esc(info)}</span>
-    <button class="x" onclick="info='';draw()">✕ Tutup</button>
+    <button class="x" type="button" id="btn-tutup-banner">✕ Tutup</button>
   </div>`;
 }
 
@@ -3008,22 +3048,21 @@ function inv() {
           <input id="inv-cari" placeholder="Cari SKU atau nama barang…" value="${esc(S.invQ)}" style="font-weight:400;width:240px">
         </div>
       </h2>
-      <table id="tbl-inv">
+      <table id="tbl-inv" class="tbl-compact">
         <thead>
           <tr>
-            <th>SKU</th>
-            <th>Nama Barang</th>
-            <th>Stok Awal</th>
-            <th>Modal Awal</th>
-            <th>Masuk (Beli)</th>
-            <th>Terjual</th>
-            <th>Penyesuaian Opname</th>
-            <th>Stok Buku (Paper)</th>
-            <th style="background:rgba(15,118,110,0.12);color:var(--ac)">Stok Aktual (Opname)</th>
-            <th style="background:rgba(15,118,110,0.12);color:var(--ac)">Selisih</th>
-            <th>HPP Rata-rata</th>
-            <th>Nilai Akhir</th>
-            <th>Aksi</th>
+            <th>Produk (SKU &amp; Nama)</th>
+            <th title="Stok Awal">Awal</th>
+            <th title="Harga Modal Satuan Awal">Modal Awal</th>
+            <th title="Barang Masuk / Pembelian">Beli</th>
+            <th title="Barang Keluar / Terjual">Jual</th>
+            <th title="Penyesuaian Opname Sebelumnya">Opname</th>
+            <th title="Stok Buku / Pembukuan">Stok Buku</th>
+            <th style="background:rgba(15,118,110,0.12);color:var(--ac);text-align:center">Fisik (Aktual)</th>
+            <th style="background:rgba(15,118,110,0.12);color:var(--ac);text-align:center">Selisih</th>
+            <th title="HPP Rata-rata Bergerak">HPP Satuan</th>
+            <th title="Nilai Total Stok Akhir">Nilai Akhir</th>
+            <th class="sticky-col-right" style="text-align:center;width:80px">Aksi</th>
           </tr>
         </thead>
         <tbody>${INV.map((i, n) => ({ i, n }))
@@ -3038,37 +3077,45 @@ function inv() {
             const selisih = hasDraft ? +draftVal - buku : 0;
 
             return `<tr>
-              <td><b>${esc(i.sku)}</b></td>
-              <td style="text-align:left">${isEd ? `<input id="ie-nama" value="${esc(i.nama)}" style="width:200px">` : esc(i.nama)}</td>
-              <td>${isEd ? `<input type="number" min="0" id="ie-stok" value="${i.stok}" style="width:75px">` : i.stok}</td>
-              <td>${isEd ? `<input type="number" min="0" id="ie-hrg" value="${i.hrg}" style="width:100px">` : rp(i.hrg)}</td>
+              <td style="text-align:left">
+                <div class="cell-sku-nama">
+                  <b>${esc(i.sku)}</b>
+                  ${isEd ? `<input id="ie-nama" value="${esc(i.nama)}" style="width:100%;font-size:12px;margin-top:2px">` : `<small>${esc(i.nama)}</small>`}
+                </div>
+              </td>
+              <td>${isEd ? `<input type="number" min="0" id="ie-stok" value="${i.stok}" style="width:58px;padding:4px">` : i.stok}</td>
+              <td>${isEd ? `<input type="number" min="0" id="ie-hrg" value="${i.hrg}" style="width:85px;padding:4px">` : rp(i.hrg)}</td>
               <td>${ms[i.sku] || 0}</td>
               <td>${jl[i.sku] || 0}</td>
               <td>${
                 penyesuaian === 0
                   ? "0"
-                  : `<span class="badge ${penyesuaian > 0 ? "ok" : "no"}">${penyesuaian > 0 ? "+" + penyesuaian : penyesuaian}</span>`
+                  : `<span class="badge ${penyesuaian > 0 ? "ok" : "no"}" style="padding:1px 6px;font-size:11px">${penyesuaian > 0 ? "+" + penyesuaian : penyesuaian}</span>`
               }</td>
               <td class="${buku < 0 ? "neg" : ""}"><b>${buku}</b></td>
-              <td style="background:rgba(15,118,110,0.05)">
-                <input type="number" min="0" data-opsku="${esc(i.sku)}" data-buku="${buku}" value="${hasDraft ? esc(draftVal) : ""}" placeholder="${buku}" style="width:82px;text-align:right;font-weight:700;border-color:${hasDraft && selisih !== 0 ? "var(--ac)" : "var(--ln)"}">
+              <td style="background:rgba(15,118,110,0.05);text-align:center">
+                <input type="number" min="0" data-opsku="${esc(i.sku)}" data-buku="${buku}" value="${hasDraft ? esc(draftVal) : ""}" placeholder="${buku}" style="width:68px;padding:3px 6px;text-align:right;font-weight:700;font-size:12px;border-color:${hasDraft && selisih !== 0 ? "var(--ac)" : "var(--ln)"}">
               </td>
-              <td style="background:rgba(15,118,110,0.05)">
+              <td style="background:rgba(15,118,110,0.05);text-align:center">
                 <span data-opdiff="${esc(i.sku)}">${
                   !hasDraft
                     ? `<span style="color:var(--mut)">–</span>`
                     : selisih === 0
-                    ? `<span class="badge ok">Sesuai (0)</span>`
-                    : `<span class="badge ${selisih > 0 ? "ok" : "no"}">${selisih > 0 ? "+" + selisih : selisih} (${rp(selisih * infoSt.l)})</span>`
+                    ? `<span class="badge ok" style="padding:1px 6px;font-size:11px">0</span>`
+                    : `<span class="badge ${selisih > 0 ? "ok" : "no"}" style="padding:1px 6px;font-size:11px">${selisih > 0 ? "+" + selisih : selisih}</span>`
                 }</span>
               </td>
               <td>${rp(infoSt.l)}</td>
               <td><b>${rp(Math.max(0, infoSt.v))}</b></td>
-              <td>${
-                isEd
-                  ? `<button class="btn sm" type="button" data-isave="${n}">Simpan</button> <button class="btn alt sm" type="button" data-icancel="1">Batal</button>`
-                  : `<button class="btn alt sm" type="button" data-iedit="${esc(i.sku)}">Ubah</button> <button class="x" type="button" data-del="${n}">Hapus</button>`
-              }</td>
+              <td class="sticky-col-right" style="text-align:center;white-space:nowrap">
+                ${
+                  isEd
+                    ? `<button class="btn sm" type="button" data-isave="${n}" style="padding:4px 8px;font-size:11.5px">Simpan</button>
+                       <button class="btn alt sm" type="button" data-icancel="1" style="padding:4px 8px;font-size:11.5px">Batal</button>`
+                    : `<button class="btn alt sm" type="button" data-iedit="${esc(i.sku)}" style="padding:4px 7px;font-size:11.5px" title="Ubah Nama/Modal/Stok">Ubah</button>
+                       <button class="x" type="button" data-del="${n}" style="padding:4px 6px;font-size:11.5px" title="Hapus SKU ini">Hapus</button>`
+                }
+              </td>
             </tr>`;
           })
           .join("")}</tbody>
@@ -4025,6 +4072,16 @@ function draw() {
       banner() +
       (T[S.tab] || dash)() +
       (S.tab == "data" ? "" : '<p id="gd-wrap"><button class="x" id="gd" type="button" style="color:var(--ac)">⚙️ Kelola Cadangan Data &amp; Reset Database</button></p>');
+    
+    // Pasang listener untuk tombol tutup banner notifikasi
+    const btnTutup = document.getElementById("btn-tutup-banner");
+    if (btnTutup) {
+      btnTutup.onclick = () => {
+        info = "";
+        draw();
+      };
+    }
+
     (B[S.tab] || bindP)();
   } catch (err) {
     console.error("Render error:", err);
