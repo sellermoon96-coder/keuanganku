@@ -596,11 +596,15 @@ tbody tr:hover td { background: color-mix(in srgb, var(--ac) 6%, transparent); }
     measurementId: "G-H091SE5KY5"
   };
 
-  const app = initializeApp(firebaseConfig);
-  const analytics = getAnalytics(app);
-  const dbFirestore = getFirestore(app);
-
-  console.log("Firebase berhasil diinisialisasi pada aplikasi web Keuangan Elzamora!");
+  let app, analytics, dbFirestore;
+  try {
+    app = initializeApp(firebaseConfig);
+    analytics = getAnalytics(app);
+    dbFirestore = getFirestore(app);
+    console.log("Firebase berhasil diinisialisasi pada aplikasi web Keuangan Elzamora!");
+  } catch (err) {
+    console.warn("Firebase inisialisasi offline fallback:", err);
+  }
 
   window.dbFirestore = dbFirestore;
   window.getDocsCollection = getDocs;
@@ -891,6 +895,7 @@ function terapkanDoc(path, d) {
 }
 async function sambungOnline() {
   try {
+    if (!window.dbFirestore) throw new Error("Firestore belum terkonfigurasi");
     const [kSnap, pjSnap] = await Promise.all([
       window.getDocsCollection(window.firebaseCollection(window.dbFirestore, "keuangan")),
       window.getDocsCollection(window.firebaseCollection(window.dbFirestore, "penjualan"))
@@ -2472,23 +2477,19 @@ function bindS() {
     o.textContent = "Memproses…";
     await impor(fl, document.getElementById("u-toko").value);
   };
-const tpl = document.getElementById("u-tpl");
-if (tpl) {
-  tpl.onclick = () => {
-    if (typeof XLSX === "undefined") {
-      alert("Library Excel (SheetJS) sedang dimuat. Pastikan ada koneksi internet lalu coba lagi.");
-      return;
-    }
-    const ws = XLSX.utils.aoa_to_sheet([
-      ["Nomor Pesanan", "SKU", "Jumlah", "Harga Satuan", "Voucher Toko", "Biaya Pengelolaan"],
-      ["261005JV801", "MUS", 2, 270000, 15000, 32000],
-      ["261005JV802", "HAS", 5, 14500, 0, 5000]
-    ]);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Penjualan");
-    simpanXlsx(wb, "jv-5-okt-2026.xlsx");
-  };
-}
+  const tpl = document.getElementById("u-tpl");
+  if (tpl && typeof XLSX !== "undefined") {
+    tpl.onclick = () => {
+      const ws = XLSX.utils.aoa_to_sheet([
+        ["Nomor Pesanan", "SKU", "Jumlah", "Harga Satuan", "Voucher Toko", "Biaya Pengelolaan"],
+        ["261005JV801", "MUS", 2, 270000, 15000, 32000],
+        ["261005JV802", "HAS", 5, 14500, 0, 5000]
+      ]);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Penjualan");
+      simpanXlsx(wb, "Template_Penjualan_Shopee.xlsx");
+    };
+  }
   document.getElementById("m-add").onclick = () => {
     const el = id => document.getElementById("m-" + id);
     const v = id => (el(id) ? el(id).value : "");
@@ -3433,38 +3434,36 @@ function beli() {
   </div>
   <div class="panel">
     <h2>Catat Pembelian Barang Dagang (Restock)</h2>
-    <div class="form">
-      <label>Tanggal<input type="date" id="b-tgl" value="${hari}"></label>
-      <label>Supplier / Toko<input id="b-toko" placeholder="Nama distributor / supplier"></label>
-      <label>Barang (SKU)
-        <input id="b-sku" list="b-sku-list" placeholder="Pilih atau ketik SKU baru..." autocomplete="off">
-        <datalist id="b-sku-list">
-          ${INV.map(i => `<option value="${esc(i.sku)}">${esc(i.nama ? i.sku + " - " + i.nama : i.sku)}</option>`).join("")}
-        </datalist>
-      </label>
-      <label>Nama Barang (Opsional)<input id="b-nama" placeholder="Nama produk jika barang baru"></label>
-      <label>Jumlah Masuk<input type="number" id="b-jml" min="1" value="10"></label>
-      <label>Harga Beli Satuan (Rp)<input type="number" id="b-hrg" min="0" value="${INV[0]?.hrg || 0}"></label>
-      <label>Dibayar Dari
-        <select id="b-bayar">
-          ${kasOp()}
-          <option value="2-20100">Hutang Usaha (Tempo / Belum Dibayar)</option>
-        </select>
-      </label>
-      <button class="btn" id="b-add">Simpan Pembelian</button>
-    </div>
-    <div id="b-err" class="neg" role="alert"></div>
+    ${
+      INV.length
+        ? `<div class="form">
+            <label>Tanggal<input type="date" id="b-tgl" value="${hari}"></label>
+            <label>Supplier / Toko<input id="b-toko" placeholder="Nama distributor / supplier"></label>
+            <label>Barang (SKU)<select id="b-sku">${INV.map(i => `<option value="${esc(i.sku)}">${esc(i.sku + " — " + i.nama)}</option>`).join("")}</select></label>
+            <label>Jumlah Masuk<input type="number" id="b-jml" min="1" value="10"></label>
+            <label>Harga Beli Satuan (Rp)<input type="number" id="b-hrg" min="0" value="${INV[0]?.hrg || 0}"></label>
+            <label>Dibayar Dari
+              <select id="b-bayar">
+                ${kasOp()}
+                <option value="2-20100">Hutang Usaha (Tempo / Belum Dibayar)</option>
+              </select>
+            </label>
+            <button class="btn" id="b-add">Simpan Pembelian</button>
+          </div>
+          <div id="b-err" class="neg" role="alert"></div>`
+        : '<div class="empty">Tambahkan produk di Persediaan Barang dulu.</div>'
+    }
   </div>
   <div class="panel scroll">
     <h2>Riwayat Pembelian Barang</h2>
     ${
       L.length
         ? `<table>
-            <thead><tr><th>Tanggal</th><th>Supplier</th><th>SKU</th><th>Jumlah</th><th>Harga Satuan</th><th>Total</th><th>Sumber Dana</th><th>Aksi</th></tr></thead>
+            <thead><tr><th>Tanggal</th><th>Supplier</th><th>SKU</th><th>Jumlah</th><th>Harga Satuan</th><th>Total</th><th>Pembayaran</th><th></th></tr></thead>
             <tbody>${L.map(
               b => `<tr>
                 <td>${b.tgl}</td>
-                <td>${esc(b.toko || "-")}</td>
+                <td>${esc(b.toko || "–")}</td>
                 <td><b>${esc(b.sku)}</b></td>
                 <td>${b.jml}</td>
                 <td>${rp(b.hrg)}</td>
@@ -3480,69 +3479,6 @@ function beli() {
 }
 
 function bindB() {
-  const skInput = document.getElementById("b-sku");
-  if (skInput) {
-    skInput.oninput = () => {
-      const val = skInput.value.trim().toUpperCase();
-      const f = INV.find(i => i.sku.toUpperCase() === val);
-      if (f) {
-        document.getElementById("b-hrg").value = f.hrg;
-        const namaEl = document.getElementById("b-nama");
-        if (namaEl && f.nama) namaEl.value = f.nama;
-      }
-    };
-  }
-  const a = document.getElementById("b-add");
-  if (a) {
-    a.onclick = () => {
-      const v = i => (document.getElementById("b-" + i)?.value || "");
-      const e = document.getElementById("b-err"), jml = +v("jml"), hrg = +v("hrg");
-      const skuVal = v("sku").trim().toUpperCase();
-      if (!v("tgl") || !skuVal || !(jml > 0) || v("hrg") === "") {
-        e.textContent = "Isi tanggal, SKU barang, jumlah, dan harga satuan.";
-        return;
-      }
-      e.textContent = "";
-      const id = uid(), tg = v("tgl");
-      const namaVal = v("nama").trim() || skuVal;
-
-      if (!INV.find(i => i.sku.toUpperCase() === skuVal)) {
-        INV.push({
-          sku: skuVal,
-          nama: namaVal,
-          stok: 0,
-          hrg: hrg
-        });
-      }
-
-      BE.push({ id, tgl: tg, toko: v("toko").trim(), sku: skuVal, jml, hrg, bayar: v("bayar") });
-      if (v("bayar") == "2-20100") {
-        const mx = Math.max(0, ...HP.filter(h => h.tipe == "hutang").map(h => +String(h.no).slice(2) || 0));
-        HP.push({
-          id: "b" + id,
-          tipe: "hutang",
-          no: "H-" + String(mx + 1).padStart(3, "0"),
-          pihak: v("toko").trim() || "Supplier",
-          tgl: tg,
-          nom: jml * hrg,
-          bayar: 0,
-          ket: "Pembelian " + skuVal,
-          akun: "2-20100",
-          log: []
-        });
-      }
-      simpanLokal();
-      draw();
-    };
-  }
-  document.querySelectorAll("[data-bd]").forEach(b => (b.onclick = () => {
-    const id = b.dataset.bd;
-    BE = BE.filter(x => x.id != id);
-    HP = HP.filter(x => x.id != "b" + id);
-    simpanLokal();
-    draw();
-  }));
-}
   const skSel = document.getElementById("b-sku");
   if (skSel) {
     skSel.onchange = () => {
@@ -3589,37 +3525,61 @@ function bindB() {
   }));
 }
 
-function simpanXlsx(wb, nama) {
+// FUNGSI PENYIMPANAN DAN PENGUNDUHAN FILE UNIVERSAL UNTUK BROWSER
+function unduhBlob(nama, blob) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = nama;
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(() => {
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }, 300);
+}
+
+function simpanFile(nama, data) {
   try {
-    if (typeof XLSX !== "undefined" && XLSX.writeFile) {
-      XLSX.writeFile(wb, nama);
-      return;
+    let blob;
+    if (data instanceof Blob) {
+      blob = data;
+    } else if (typeof data === "string") {
+      blob = new Blob([data], { type: "application/json;charset=utf-8" });
+    } else {
+      blob = new Blob([data], { type: "application/octet-stream" });
     }
-    const wbout = XLSX.write(wb, { bookType: "xlsx", type: "array" });
-    simpanFile(nama, wbout, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+    unduhBlob(nama, blob);
+    info = "File '" + nama + "' berhasil diunduh ke perangkat Anda.";
+    draw();
   } catch (e) {
-    console.error("Gagal simpan XLSX:", e);
-    info = "Gagal mengunduh " + nama + ": " + (e.message || e);
+    info = "Gagal mengunduh file: " + (e.message || e);
     draw();
   }
 }
 
-async function simpanFile(nama, data, mime = "application/octet-stream") {
+function simpanXlsx(wb, nama) {
   try {
-    const blob = data instanceof Blob ? data : new Blob([data], { type: mime });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = nama;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    if (typeof XLSX !== "undefined" && XLSX.writeFile) {
+      XLSX.writeFile(wb, nama);
+      info = "Template / File Excel '" + nama + "' berhasil diunduh!";
+      draw();
+    } else {
+      const u8 = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+      const blob = new Blob([u8], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+      unduhBlob(nama, blob);
+      info = "Template / File Excel '" + nama + "' berhasil diunduh!";
+      draw();
+    }
   } catch (e) {
-    console.error("Gagal unduh file:", e);
-    info = "Gagal mengunduh " + nama + ": " + (e.message || e);
+    info = "Gagal membuat file Excel: " + (e.message || e);
     draw();
   }
+}
+
+function unduhCadangan() {
+  const jsonStr = JSON.stringify({ JR, P, INV, BE, HP, CA, OP, AKUN, KATS, SKUS }, null, 2);
+  simpanFile("keuangan-elzamora-" + hariIni() + ".json", jsonStr);
 }
 
 function konfirmasi(o) {
@@ -3688,7 +3648,7 @@ function dat() {
 function bindD() {
   document.getElementById("ex").onclick = () => {
     unduhCadangan();
-    document.getElementById("dm").innerHTML = "<span class='pos'>Konfirmasi penyimpanan file muncul di layar. Setujui untuk menyimpan.</span>";
+    document.getElementById("dm").innerHTML = "<span class='pos'>File cadangan JSON berhasil diunduh.</span>";
   };
   document.getElementById("im-json").onchange = e => {
     const f = e.target.files[0];
