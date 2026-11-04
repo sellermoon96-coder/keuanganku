@@ -2472,19 +2472,23 @@ function bindS() {
     o.textContent = "Memproses…";
     await impor(fl, document.getElementById("u-toko").value);
   };
-  const tpl = document.getElementById("u-tpl");
-  if (tpl && typeof XLSX !== "undefined") {
-    tpl.onclick = () => {
-      const ws = XLSX.utils.aoa_to_sheet([
-        ["Nomor Pesanan", "SKU", "Jumlah", "Harga Satuan", "Voucher Toko", "Biaya Pengelolaan"],
-        ["261005JV801", "MUS", 2, 270000, 15000, 32000],
-        ["261005JV802", "HAS", 5, 14500, 0, 5000]
-      ]);
-      const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, "Penjualan");
-      simpanXlsx(wb, "jv-5-okt-2026.xlsx");
-    };
-  }
+const tpl = document.getElementById("u-tpl");
+if (tpl) {
+  tpl.onclick = () => {
+    if (typeof XLSX === "undefined") {
+      alert("Library Excel (SheetJS) sedang dimuat. Pastikan ada koneksi internet lalu coba lagi.");
+      return;
+    }
+    const ws = XLSX.utils.aoa_to_sheet([
+      ["Nomor Pesanan", "SKU", "Jumlah", "Harga Satuan", "Voucher Toko", "Biaya Pengelolaan"],
+      ["261005JV801", "MUS", 2, 270000, 15000, 32000],
+      ["261005JV802", "HAS", 5, 14500, 0, 5000]
+    ]);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Penjualan");
+    simpanXlsx(wb, "jv-5-okt-2026.xlsx");
+  };
+}
   document.getElementById("m-add").onclick = () => {
     const el = id => document.getElementById("m-" + id);
     const v = id => (el(id) ? el(id).value : "");
@@ -3585,23 +3589,37 @@ function bindB() {
   }));
 }
 
-async function simpanFile(nama, data) {
+function simpanXlsx(wb, nama) {
   try {
-    const dl = window.claude && claude.use ? await claude.use("downloads") : null;
-    if (!dl) { info = "Unduh file tidak tersedia di tampilan ini. Buka artifact lewat claude.ai."; draw(); return; }
-    await dl.save({ filename: nama, data });
+    if (typeof XLSX !== "undefined" && XLSX.writeFile) {
+      XLSX.writeFile(wb, nama);
+      return;
+    }
+    const wbout = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+    simpanFile(nama, wbout, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
   } catch (e) {
-    if (e && e.code == "declined") return;
-    info = "Gagal mengunduh " + nama + ": " + ((e && (e.message || e.code)) || e);
+    console.error("Gagal simpan XLSX:", e);
+    info = "Gagal mengunduh " + nama + ": " + (e.message || e);
     draw();
   }
 }
-function simpanXlsx(wb, nama) {
-  return simpanFile(nama, XLSX.write(wb, { bookType: "xlsx", type: "array" }));
-}
 
-function unduhCadangan() {
-  simpanFile("keuangan-elzamora-" + hariIni() + ".json", JSON.stringify({ JR, P, INV, BE, HP, CA, OP, AKUN, KATS, SKUS }, null, 2));
+async function simpanFile(nama, data, mime = "application/octet-stream") {
+  try {
+    const blob = data instanceof Blob ? data : new Blob([data], { type: mime });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = nama;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  } catch (e) {
+    console.error("Gagal unduh file:", e);
+    info = "Gagal mengunduh " + nama + ": " + (e.message || e);
+    draw();
+  }
 }
 
 function konfirmasi(o) {
