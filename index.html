@@ -1347,7 +1347,7 @@ function JA() {
               { akun: "5-50204", d: 0, k: absVal }
             ]
           : [
-              { akun: "5-50204", d: absVal, k: 0 },
+              { akun: "5-50204", d: 0, k: absVal },
               { akun: "1-10200", d: 0, k: absVal }
             ]
     });
@@ -1365,6 +1365,15 @@ function hitungAlokasiCair() {
     const x = (M[kd] = M[kd] || { kode: kd, toko: tk, bln: p.tgl.slice(0, 7), net: 0, bayar: 0 });
     x.net += p.hrg * p.jml - (p.vc || 0) - (p.adm || 0);
   });
+  // Gabungkan juga piutang Shopee dari manual HP (misal: Saldo Awal PU-JV, PU-KONG)
+  HP.filter(h => h.tipe === "piutang" && h.no && (h.no.startsWith("PU-") || h.no.includes("JV") || h.no.includes("KONG"))).forEach(h => {
+    const tk = h.no.includes("KONG") ? "kong" : "java";
+    const kd = h.no;
+    const x = (M[kd] = M[kd] || { kode: kd, toko: tk, bln: (h.tgl || "").slice(0, 7) || "2026-01", net: 0, bayar: 0 });
+    x.net += h.nom;
+    x.bayar += (h.bayar || 0);
+  });
+
   const list = Object.values(M).sort((a, b) => a.bln.localeCompare(b.bln) || a.kode.localeCompare(b.kode));
   const refMap = {};
   [...CA]
@@ -1403,6 +1412,20 @@ function PS() {
       });
       x.net += e.net;
     });
+
+  // Ikut sertakan piutang manual yang bernomor Shopee (seperti saldo awal PU-JV-... / PU-KONG-...)
+  HP.filter(h => h.tipe === "piutang" && h.no && (h.no.startsWith("PU-") || h.no.includes("JV") || h.no.includes("KONG"))).forEach(h => {
+    const tk = h.no.includes("KONG") ? "kong" : "java";
+    const x = (M[h.no] = M[h.no] || {
+      kode: h.no,
+      toko: tk,
+      bln: (h.tgl || "").slice(0, 7) || "2026-01",
+      net: 0,
+      bayar: 0
+    });
+    x.net += h.nom;
+    x.bayar += (h.bayar || 0);
+  });
 
   const L = Object.values(M).sort((a, b) => a.bln.localeCompare(b.bln) || a.kode.localeCompare(b.kode));
   let lebih = 0;
@@ -2138,11 +2161,18 @@ function jr() {
       <label>Terkait hutang/piutang
         <select id="j-ref">
           <option value="">Tidak ada</option>
+          <option value="custom_piutang">✏️ Masukkan No. Piutang Manual (Kustom)</option>
+          <option value="custom_hutang">✏️ Masukkan No. Hutang Manual (Kustom)</option>
           ${piutangShopeeOpts ? `<optgroup label="Piutang Shopee per Toko & Bulan">${piutangShopeeOpts}</optgroup>` : ""}
           ${piutangManualOpts ? `<optgroup label="Piutang Manual">${piutangManualOpts}</optgroup>` : ""}
           ${hutangOpts ? `<optgroup label="Hutang">${hutangOpts}</optgroup>` : ""}
         </select>
       </label>
+      <div id="j-custom-ref-wrap" style="display:none;grid-column:span 2">
+        <label>Ketik No. Piutang / Hutang Manual (Jika no. sama maka otomatis gabung):
+          <input id="j-custom-ref" placeholder="Contoh: PU-JV-202610 atau H-001" autocomplete="off">
+        </label>
+      </div>
     </div>
     <div id="j-baris">${barisJ()}${barisJ()}</div>
     <div class="bar" style="margin:8px 0 12px">
@@ -2201,6 +2231,15 @@ function bindJ() {
     pasang();
     hitJ();
   };
+
+  const selRef = document.getElementById("j-ref");
+  const wrapCustom = document.getElementById("j-custom-ref-wrap");
+  if (selRef && wrapCustom) {
+    selRef.onchange = () => {
+      wrapCustom.style.display = selRef.value.startsWith("custom_") ? "block" : "none";
+    };
+  }
+
   document.getElementById("j-simpan").onclick = () => {
     const e = document.getElementById("j-err"),
       t = document.getElementById("j-tgl").value,
@@ -2226,28 +2265,106 @@ function bindJ() {
       return;
     }
     e.textContent = "";
-    const rf = document.getElementById("j-ref").value.split("|");
+    const rfVal = document.getElementById("j-ref").value;
     const doc = { id: uid(), tgl: t, ket: document.getElementById("j-ket").value.trim() || "Jurnal Umum", lines };
-    if (rf[1]) {
-      doc.ref = { tipe: rf[0], no: rf[1] };
-      if (rf[0] === "piutang") {
+    
+    let tipeRef = "", noRef = "";
+    if (rfVal.startsWith("custom_")) {
+      tipeRef = rfVal.replace("custom_", "");
+      noRef = document.getElementById("j-custom-ref").value.trim().toUpperCase();
+      if (!noRef) {
+        e.textContent = "Ketik nomor referensi piutang/hutang manual terlebih dahulu.";
+        return;
+      }
+    } else if (rfVal.includes("|")) {
+      const parts = rfVal.split("|");
+      tipeRef = parts[0];
+      noRef = parts[1];
+    }
+
+    if (noRef) {
+      doc.ref = { tipe: tipeRef, no: noRef };
+
+      // Logika Gabung: Jika nomor hutang/piutang sudah ada di daftar HP, gabungkan nominalnya
+      const totalDebetAkun = lines.filter(l => l.d > 0).reduce((s, l) => s + l.d, 0);
+      const totalKreditAkun = lines.filter(l => l.k > 0).reduce((s, l) => s + l.k, 0);
+      const adaHP = HP.find(h => h.no.toLowerCase() === noRef.toLowerCase() && h.tipe === tipeRef);
+
+      if (tipeRef === "piutang") {
+        const totalDebetPiutang = lines.filter(l => l.akun === "1-10100" && l.d > 0).reduce((s, l) => s + l.d, 0);
         const totalKreditPiutang = lines.filter(l => l.akun === "1-10100" && l.k > 0).reduce((s, l) => s + l.k, 0);
+
+        if (totalDebetPiutang > 0) {
+          if (adaHP) {
+            adaHP.nom += totalDebetPiutang;
+          } else {
+            HP.push({
+              id: uid(),
+              tipe: "piutang",
+              no: noRef,
+              pihak: doc.ket || "Piutang " + noRef,
+              tgl: t,
+              tempo: "",
+              nom: totalDebetPiutang,
+              bayar: 0,
+              ket: doc.ket,
+              akun: "1-10100",
+              lawan: lines.find(l => l.k > 0)?.akun || "3-30000",
+              log: []
+            });
+          }
+        }
+
         if (totalKreditPiutang > 0) {
+          if (adaHP) {
+            adaHP.bayar = (adaHP.bayar || 0) + totalKreditPiutang;
+            adaHP.log = [...(adaHP.log || []), { tgl: t, nom: totalKreditPiutang, akun: lines.find(l => l.d > 0)?.akun || "1-10003" }];
+          }
           CA.push({
             id: uid(),
             tgl: t,
-            toko: rf[1].includes("-KONG-") ? "kong" : "java",
-            kode: rf[1],
+            toko: noRef.includes("KONG") ? "kong" : "java",
+            kode: noRef,
             nom: totalKreditPiutang,
-            akun: "1-10001"
+            akun: lines.find(l => l.d > 0)?.akun || "1-10003"
           });
+        }
+      } else if (tipeRef === "hutang") {
+        const totalKreditHutang = lines.filter(l => l.akun === "2-20100" && l.k > 0).reduce((s, l) => s + l.k, 0);
+        const totalDebetHutang = lines.filter(l => l.akun === "2-20100" && l.d > 0).reduce((s, l) => s + l.d, 0);
+
+        if (totalKreditHutang > 0) {
+          if (adaHP) {
+            adaHP.nom += totalKreditHutang;
+          } else {
+            HP.push({
+              id: uid(),
+              tipe: "hutang",
+              no: noRef,
+              pihak: doc.ket || "Hutang " + noRef,
+              tgl: t,
+              tempo: "",
+              nom: totalKreditHutang,
+              bayar: 0,
+              ket: doc.ket,
+              akun: "2-20100",
+              lawan: lines.find(l => l.d > 0)?.akun || "1-10200",
+              log: []
+            });
+          }
+        }
+
+        if (totalDebetHutang > 0 && adaHP) {
+          adaHP.bayar = (adaHP.bayar || 0) + totalDebetHutang;
+          adaHP.log = [...(adaHP.log || []), { tgl: t, nom: totalDebetHutang, akun: lines.find(l => l.k > 0)?.akun || "1-10003" }];
         }
       }
     }
+
     JR.push(doc);
     S.thn = dt(t).getFullYear();
     simpanLokal();
-    info = "Jurnal berhasil disimpan dan terhubung ke buku besar.";
+    info = "Jurnal berhasil disimpan dan terhubung ke buku besar & pelacakan hutang/piutang.";
     draw();
   };
   document.querySelectorAll("[data-id]").forEach(x => (x.onclick = () => {
@@ -2771,6 +2888,9 @@ function hp() {
         <h2>Tambah Hutang atau Piutang Baru</h2>
         <div class="form">
           <label>Jenis<select id="h-tipe"><option value="hutang">Hutang</option><option value="piutang">Piutang</option></select></label>
+          <label>No. Hutang / Piutang (Kustom / Otomatis)
+            <input id="h-custom-no" placeholder="Contoh: PU-JV-202610 (Kosongkan jika otomatis)" autocomplete="off">
+          </label>
           <label>Nama Pihak / Supplier<input id="h-pihak" placeholder="Nama Supplier / Mitra"></label>
           <label>Tanggal<input type="date" id="h-tgl" value="${hari}"></label>
           <label>Jatuh Tempo<input type="date" id="h-tempo"></label>
@@ -2780,7 +2900,8 @@ function hp() {
           <label>Keterangan<input id="h-ket"></label>
           <button class="btn" id="h-add">Simpan</button>
         </div>
-        <div id="h-err" class="neg" role="alert"></div>
+        <small style="color:var(--mut);display:block;margin-top:6px">💡 Jika nomor hutang/piutang yang Anda ketik sudah ada, nominalnya akan <b>otomatis digabung menjadi 1</b> akumulasi saldo.</small>
+        <div id="h-err" class="neg" role="alert" style="margin-top:4px"></div>
       </div>
 
       <div class="panel">
@@ -2868,22 +2989,40 @@ function bindH() {
       e.textContent = t == "hutang" ? "Hutang harus memakai akun berawalan 2-." : "Piutang harus memakai akun aset berawalan 1-.";
       return;
     }
-    const mx = Math.max(0, ...HP.filter(h => h.tipe == t).map(h => +String(h.no).slice(2) || 0));
-    const no = (t == "hutang" ? "H-" : "P-") + String(mx + 1).padStart(3, "0");
-    HP.push({
-      id: uid(),
-      tipe: t,
-      no,
-      pihak: v("pihak").trim(),
-      tgl: v("tgl"),
-      tempo: v("tempo"),
-      nom,
-      bayar: 0,
-      ket: v("ket"),
-      akun: v("akun"),
-      lawan: v("lawan"),
-      log: []
-    });
+
+    const customNo = (document.getElementById("h-custom-no")?.value || "").trim().toUpperCase();
+    let no = customNo;
+    if (!no) {
+      const mx = Math.max(0, ...HP.filter(h => h.tipe == t).map(h => +String(h.no).slice(2) || 0));
+      no = (t == "hutang" ? "H-" : "P-") + String(mx + 1).padStart(3, "0");
+    }
+
+    // Jika no piutang/hutang sudah ada, gabungkan nominalnya
+    const adaHP = HP.find(h => h.no.toLowerCase() === no.toLowerCase() && h.tipe === t);
+    if (adaHP) {
+      adaHP.nom += nom;
+      if (v("ket")) {
+        adaHP.ket = (adaHP.ket ? adaHP.ket + " + " : "") + v("ket");
+      }
+      info = `Nomor ${no} sudah ada, nominal Rp ${nom.toLocaleString("id-ID")} berhasil digabungkan menjadi total Rp ${adaHP.nom.toLocaleString("id-ID")}.`;
+    } else {
+      HP.push({
+        id: uid(),
+        tipe: t,
+        no,
+        pihak: v("pihak").trim(),
+        tgl: v("tgl"),
+        tempo: v("tempo"),
+        nom,
+        bayar: 0,
+        ket: v("ket"),
+        akun: v("akun"),
+        lawan: v("lawan"),
+        log: []
+      });
+      info = `${t == "hutang" ? "Hutang" : "Piutang"} ${no} berhasil disimpan.`;
+    }
+
     simpanLokal();
     draw();
   };
@@ -2928,6 +3067,16 @@ function bindH() {
     const item = { id: uid(), tgl, toko, nom, akun: document.getElementById("c-akun").value };
     if (kode) item.kode = kode;
     CA.push(item);
+
+    // Sinkronkan ke data HP jika kode cocok dengan nomor piutang manual
+    if (kode) {
+      const matchHP = HP.find(h => h.no.toLowerCase() === kode.toLowerCase() && h.tipe === "piutang");
+      if (matchHP) {
+        matchHP.bayar = (matchHP.bayar || 0) + nom;
+        matchHP.log = [...(matchHP.log || []), { tgl, nom, akun: document.getElementById("c-akun").value }];
+      }
+    }
+
     simpanLokal();
     info = "Pencairan dana Shopee " + labelToko(toko) + (kode ? " (" + kode + ")" : "") + " sebesar " + rp(nom) + " berhasil dicatat.";
     draw();
