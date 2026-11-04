@@ -854,6 +854,142 @@ const kodePiutangToko = (tk, tgl) => {
 };
 const labelToko = tk => (TOKO_INFO[tk || "java"] ? TOKO_INFO[tk || "java"].label : tk);
 
+// Deteksi & normalisasi kode piutang toko (mis. PU-JV202611 -> PU-JV-202611, PU-KONG202611 -> PU-KONG-202611)
+function parseKodePiutangToko(rawNo, tglFallback) {
+  const s = String(rawNo || "").trim().toUpperCase();
+  if (!s) return null;
+  const m = /^(?:PU[-_]?)?(JV|JAVA|KONG|KF|LAZ|LAZADA|TT|TIKTOK)[-_]?(\d{4})[-_]?(\d{2})$/i.exec(s);
+  if (m) {
+    const tkRaw = m[1].toUpperCase();
+    const toko = (tkRaw === "KONG" || tkRaw === "KF") ? "kong"
+               : (tkRaw === "LAZ" || tkRaw === "LAZADA") ? "lazada"
+               : (tkRaw === "TT" || tkRaw === "TIKTOK") ? "tiktok"
+               : "java";
+    const kdToko = TOKO_INFO[toko].kode;
+    const thn = m[2];
+    const blnNum = String(m[3]).padStart(2, "0");
+    return {
+      kode: "PU-" + kdToko + "-" + thn + blnNum,
+      toko,
+      bln: thn + "-" + blnNum
+    };
+  }
+  if (s.startsWith("PU-") || s.startsWith("PU_") || /^PU(JV|KONG|KF|LAZ|TT)/i.test(s)) {
+    const toko = (s.includes("KONG") || s.includes("KF")) ? "kong"
+               : s.includes("LAZ") ? "lazada"
+               : (s.includes("TT") || s.includes("TIKTOK")) ? "tiktok"
+               : "java";
+    const ym = /(\d{4})[-_]?(\d{2})/.exec(s);
+    const bln = ym ? (ym[1] + "-" + ym[2]) : (String(tglFallback || hariIni()).slice(0, 7) || "2026-01");
+    const kdToko = TOKO_INFO[toko].kode;
+    const kode = "PU-" + kdToko + "-" + bln.replace("-", "");
+    return { kode, toko, bln };
+  }
+  return null;
+}
+const isPiutangToko = no => !!parseKodePiutangToko(no);
+
+// Bersihkan duplikasi data piutang toko / jurnal manual dari versi sebelumnya
+function sanitasiData() {
+  let berubah = false;
+
+  // 1. Normalisasi kode piutang toko pada Jurnal Umum Manual (JR)
+  JR.forEach(j => {
+    if (!j.ref && j.ket) {
+      const mKet = /\b(PU[-_]?(?:JV|JAVA|KONG|KF|LAZ|TT)[-_]?\d{6})\b/i.exec(j.ket);
+      const hasPiutangLine = (j.lines || []).some(l => l.akun === "1-10100" && (l.d > 0 || l.k > 0));
+      if (mKet && hasPiutangLine) {
+        const p = parseKodePiutangToko(mKet[1], j.tgl);
+        if (p) {
+          j.ref = { tipe: "piutang", no: p.kode };
+          berubah = true;
+        }
+      }
+    }
+    if (j.ref && j.ref.tipe === "piutang") {
+      const p = parseKodePiutangToko(j.ref.no, j.tgl);
+      if (p && j.ref.no !== p.kode) {
+        j.ref.no = p.kode;
+        berubah = true;
+      }
+    }
+  });
+
+  // 2. Normalisasi kode pada CA dan hapus duplikat CA yang sebelumnya ikut terbuat dari Jurnal Manual
+  CA.forEach(c => {
+    if (c.kode) {
+      const p = parseKodePiutangToko(c.kode, c.tgl);
+      if (p && (c.kode !== p.kode || c.toko !== p.toko)) {
+        c.kode = p.kode;
+        c.toko = p.toko;
+        berubah = true;
+      }
+    }
+  });
+  const caAwalLen = CA.length;
+  CA = CA.filter(c => {
+    if (!c.kode) return true;
+    const dupJr = JR.some(j =>
+      j.tgl === c.tgl &&
+      j.ref &&
+      j.ref.tipe === "piutang" &&
+      j.ref.no === c.kode &&
+      (j.lines || []).some(l => l.akun === "1-10100" && l.k === c.nom)
+    );
+    return !dupJr;
+  });
+  if (CA.length !== caAwalLen) berubah = true;
+
+  // 3. Bersihkan item piutang toko (PU-JV / PU-KONG) dari HP agar tidak muncul ganda di Daftar Hutang & Piutang maupun Jurnal Otomatis
+  const hpBaru = [];
+  HP.forEach(h => {
+    if (h.akun) h.akun = String(h.akun).split(" — ")[0];
+    if (h.lawan) h.lawan = String(h.lawan).split(" — ")[0];
+
+    if (h.tipe === "piutang" && isPiutangToko(h.no)) {
+      const p = parseKodePiutangToko(h.no, h.tgl);
+      const kd = p ? p.kode : h.no;
+      const sudahAdaDiJr = JR.some(j =>
+        j.ref && j.ref.tipe === "piutang" && j.ref.no === kd
+      );
+      if (!sudahAdaDiJr && h.lawan) {
+        JR.push({
+          id: "jr_" + (h.id || uid()),
+          tgl: h.tgl || hariIni(),
+          ket: h.ket || ("Piutang " + (h.pihak || kd)),
+          ref: { tipe: "piutang", no: kd },
+          lines: [
+            { akun: h.akun || "1-10100", d: h.nom, k: 0 },
+            { akun: h.lawan, d: 0, k: h.nom }
+          ]
+        });
+      }
+      berubah = true;
+      return; // Jangan masukkan ke HP karena sudah dikelola di Piutang Toko (PS) & JR
+    }
+
+    // Jika HP non-toko berasal dari Jurnal Manual lama yang terlanjur punya `lawan`, tandai fromJr agar tidak jadi jurnal ganda
+    const jrMatch = JR.find(j =>
+      j.ref &&
+      j.ref.tipe === h.tipe &&
+      String(j.ref.no).toLowerCase() === String(h.no).toLowerCase() &&
+      j.tgl === h.tgl
+    );
+    if (jrMatch && h.lawan && !h.fromJr) {
+      h.fromJr = jrMatch.id;
+      delete h.lawan;
+      berubah = true;
+    }
+    hpBaru.push(h);
+  });
+  if (hpBaru.length !== HP.length) {
+    HP = hpBaru;
+    berubah = true;
+  }
+
+  return berubah;
+}
+
 const TETAP = ["1-10100","1-10200","2-20100","4-40000","4-40100","4-40200","4-40300","5-50300","6-60300","6-60302","4-40600","4-40700"];
 const KD = {
   "Kas & Bank":"1","Akun Piutang":"1","Persediaan":"1","Aktiva Lancar Lainnya":"1",
@@ -953,10 +1089,11 @@ async function sambungOnline() {
       terapkanDoc("penjualan/" + doc.id, doc.data());
     });
     ONLINE = true;
+    const diperbaiki = sanitasiData();
     rebuildAK();
     const bd = document.getElementById("btn-demo"); if (bd) bd.style.display = "none";
     setStatus("Tersambung · " + (ada ? "" : ""));
-    if (!ada) syncOnline();
+    if (!ada || diperbaiki) simpanLokal();
     return true;
   } catch (e) {
     setStatus("Mode offline (hanya browser ini): " + (e.message || e.code || e), true);
@@ -976,10 +1113,12 @@ function muatLokal() {
       HP = d.HP || [];
       CA = d.CA || [];
       OP = d.OP || [];
-      HP.forEach(h => { if (h.akun) h.akun = String(h.akun).split(" — ")[0]; if (h.lawan) h.lawan = String(h.lawan).split(" — ")[0]; });
       if (d.AKUN && d.AKUN.length) AKUN = d.AKUN;
       if (d.KATS && d.KATS.length) KATS = d.KATS;
       if (d.SKUS && d.SKUS.length) SKUS = d.SKUS;
+      if (sanitasiData()) {
+        localStorage.setItem("elzamora_4q26_v2", JSON.stringify({ JR, P, INV, BE, HP, CA, OP, AKUN, KATS, SKUS }));
+      }
       return true;
     }
   } catch (e) {}
@@ -1261,7 +1400,8 @@ function JA() {
   );
 
   HP.forEach(h =>
-    (h.log || []).forEach((x, i) =>
+    (h.log || []).forEach((x, i) => {
+      if (x.fromJr) return; // Pembayaran dari Jurnal Umum Manual sudah tercatat di JR
       E.push({
         id: "~h" + h.id + i,
         auto: 1,
@@ -1278,12 +1418,13 @@ function JA() {
                 { akun: x.akun, d: x.nom, k: 0 },
                 { akun: h.akun || "1-10100", d: 0, k: x.nom }
               ]
-      })
-    )
+      });
+    })
   );
 
   HP.forEach(h => {
-    if (h.lawan)
+    const nomOtomatis = h.nom - (h.jrNom || 0);
+    if (h.lawan && !h.fromJr && nomOtomatis > 0)
       E.push({
         id: "~k" + h.id,
         auto: 1,
@@ -1293,12 +1434,12 @@ function JA() {
         lines:
           h.tipe == "hutang"
             ? [
-                { akun: h.lawan, d: h.nom, k: 0 },
-                { akun: h.akun, d: 0, k: h.nom }
+                { akun: h.lawan, d: nomOtomatis, k: 0 },
+                { akun: h.akun, d: 0, k: nomOtomatis }
               ]
             : [
-                { akun: h.akun, d: h.nom, k: 0 },
-                { akun: h.lawan, d: 0, k: h.nom }
+                { akun: h.akun, d: nomOtomatis, k: 0 },
+                { akun: h.lawan, d: 0, k: nomOtomatis }
               ]
       });
   });
@@ -1365,13 +1506,24 @@ function hitungAlokasiCair() {
     const x = (M[kd] = M[kd] || { kode: kd, toko: tk, bln: p.tgl.slice(0, 7), net: 0, bayar: 0 });
     x.net += p.hrg * p.jml - (p.vc || 0) - (p.adm || 0);
   });
-  // Gabungkan juga piutang Shopee dari manual HP (misal: Saldo Awal PU-JV, PU-KONG)
-  HP.filter(h => h.tipe === "piutang" && h.no && (h.no.startsWith("PU-") || h.no.includes("JV") || h.no.includes("KONG"))).forEach(h => {
-    const tk = h.no.includes("KONG") ? "kong" : "java";
-    const kd = h.no;
-    const x = (M[kd] = M[kd] || { kode: kd, toko: tk, bln: (h.tgl || "").slice(0, 7) || "2026-01", net: 0, bayar: 0 });
-    x.net += h.nom;
-    x.bayar += (h.bayar || 0);
+
+  // Gabungkan juga piutang toko yang diinput lewat Jurnal Umum Manual (mis. PU-JV-202611 / PU-KONG-202611)
+  JR.forEach(j => {
+    if (!j.ref || j.ref.tipe !== "piutang") return;
+    const infoTk = parseKodePiutangToko(j.ref.no, j.tgl);
+    if (!infoTk) return;
+    const netD = (j.lines || []).filter(l => l.akun === "1-10100" && l.d > 0).reduce((s, l) => s + l.d, 0);
+    const netK = (j.lines || []).filter(l => l.akun === "1-10100" && l.k > 0).reduce((s, l) => s + l.k, 0);
+    if (!netD && !netK) return;
+    const x = (M[infoTk.kode] = M[infoTk.kode] || {
+      kode: infoTk.kode,
+      toko: infoTk.toko,
+      bln: infoTk.bln,
+      net: 0,
+      bayar: 0
+    });
+    x.net += netD;
+    x.bayar += netK;
   });
 
   const list = Object.values(M).sort((a, b) => a.bln.localeCompare(b.bln) || a.kode.localeCompare(b.kode));
@@ -1379,17 +1531,19 @@ function hitungAlokasiCair() {
   [...CA]
     .sort((a, b) => a.tgl.localeCompare(b.tgl))
     .forEach(c => {
-      const tk = c.toko || (c.kode && c.kode.includes("-KONG-") ? "kong" : "java");
-      if (c.kode && M[c.kode]) {
-        refMap[c.id] = c.kode;
-        M[c.kode].bayar += c.nom;
+      const p = c.kode ? parseKodePiutangToko(c.kode, c.tgl) : null;
+      const kdNorm = p ? p.kode : c.kode;
+      const tk = c.toko || (p ? p.toko : (c.kode && c.kode.includes("KONG") ? "kong" : "java"));
+      if (kdNorm && M[kdNorm]) {
+        refMap[c.id] = kdNorm;
+        M[kdNorm].bayar += c.nom;
       } else {
         const kandidat = list.find(x => x.toko == tk && x.net - x.bayar > 0) || list.find(x => x.toko == tk);
         if (kandidat) {
           refMap[c.id] = kandidat.kode;
           kandidat.bayar += c.nom;
         } else {
-          refMap[c.id] = kodePiutangToko(tk, c.tgl);
+          refMap[c.id] = kdNorm || kodePiutangToko(tk, c.tgl);
         }
       }
     });
@@ -1413,18 +1567,23 @@ function PS() {
       x.net += e.net;
     });
 
-  // Ikut sertakan piutang manual yang bernomor Shopee (seperti saldo awal PU-JV-... / PU-KONG-...)
-  HP.filter(h => h.tipe === "piutang" && h.no && (h.no.startsWith("PU-") || h.no.includes("JV") || h.no.includes("KONG"))).forEach(h => {
-    const tk = h.no.includes("KONG") ? "kong" : "java";
-    const x = (M[h.no] = M[h.no] || {
-      kode: h.no,
-      toko: tk,
-      bln: (h.tgl || "").slice(0, 7) || "2026-01",
+  // Ikut sertakan piutang toko yang diinput lewat Jurnal Umum Manual (seperti PU-JV-202611 / PU-KONG-202611)
+  JR.forEach(j => {
+    if (!j.ref || j.ref.tipe !== "piutang") return;
+    const infoTk = parseKodePiutangToko(j.ref.no, j.tgl);
+    if (!infoTk) return;
+    const netD = (j.lines || []).filter(l => l.akun === "1-10100" && l.d > 0).reduce((s, l) => s + l.d, 0);
+    const netK = (j.lines || []).filter(l => l.akun === "1-10100" && l.k > 0).reduce((s, l) => s + l.k, 0);
+    if (!netD && !netK) return;
+    const x = (M[infoTk.kode] = M[infoTk.kode] || {
+      kode: infoTk.kode,
+      toko: infoTk.toko,
+      bln: infoTk.bln,
       net: 0,
       bayar: 0
     });
-    x.net += h.nom;
-    x.bayar += (h.bayar || 0);
+    x.net += netD;
+    x.bayar += netK;
   });
 
   const L = Object.values(M).sort((a, b) => a.bln.localeCompare(b.bln) || a.kode.localeCompare(b.kode));
@@ -1434,9 +1593,11 @@ function PS() {
   [...CA]
     .sort((a, b) => a.tgl.localeCompare(b.tgl))
     .forEach(c => {
-      const tk = c.toko || (c.kode && c.kode.includes("-KONG-") ? "kong" : "java");
-      if (c.kode && M[c.kode]) {
-        const x = M[c.kode];
+      const p = c.kode ? parseKodePiutangToko(c.kode, c.tgl) : null;
+      const kdNorm = p ? p.kode : c.kode;
+      const tk = c.toko || (p ? p.toko : (c.kode && c.kode.includes("KONG") ? "kong" : "java"));
+      if (kdNorm && M[kdNorm]) {
+        const x = M[kdNorm];
         const ruang = Math.max(0, x.net - x.bayar);
         const pakai = Math.min(ruang, c.nom);
         x.bayar += pakai;
@@ -2033,10 +2194,12 @@ function cek() {
       0
     );
   const sisa = (t, ak) =>
-    HP.filter(h => h.tipe == t && (h.akun || (t == "hutang" ? "2-20100" : "1-10100")) == ak).reduce(
-      (s, h) => s + h.nom - (h.bayar || 0),
-      0
-    );
+    HP.filter(
+      h =>
+        h.tipe == t &&
+        !(t == "piutang" && isPiutangToko(h.no)) &&
+        (h.akun || (t == "hutang" ? "2-20100" : "1-10100")) == ak
+    ).reduce((s, h) => s + h.nom - (h.bayar || 0), 0);
   const H = HPPM(), C = [];
   const ok = x => Math.round(x) == 0;
 
@@ -2125,7 +2288,7 @@ function jr() {
     .sort((a, b) => b.tgl.localeCompare(a.tgl) || b.id.localeCompare(a.id));
 
   const piutangShopeeOpts = PS().L.filter(x => (x.net - x.bayar) > 0).map(x => `<option value="piutang|${esc(x.kode)}">${esc(x.kode + " — " + labelToko(x.toko) + " (Sisa " + rp(x.net - x.bayar) + ")")}</option>`).join("");
-  const piutangManualOpts = HP.filter(h => h.tipe == "piutang" && (h.nom - (h.bayar || 0)) > 0).map(h => `<option value="${esc(h.tipe + "|" + h.no)}">${esc(h.no + " " + h.pihak)}</option>`).join("");
+  const piutangManualOpts = HP.filter(h => h.tipe == "piutang" && !isPiutangToko(h.no) && (h.nom - (h.bayar || 0)) > 0).map(h => `<option value="${esc(h.tipe + "|" + h.no)}">${esc(h.no + " " + h.pihak)}</option>`).join("");
   const hutangOpts = HP.filter(h => h.tipe == "hutang" && (h.nom - (h.bayar || 0)) > 0).map(h => `<option value="${esc(h.tipe + "|" + h.no)}">${esc(h.no + " " + h.pihak)}</option>`).join("");
 
   let no = 0;
@@ -2170,7 +2333,7 @@ function jr() {
       </label>
       <div id="j-custom-ref-wrap" style="display:none;grid-column:span 2">
         <label>Ketik No. Piutang / Hutang Manual:
-          <input id="j-custom-ref" placeholder="Contoh: PU-JV-202610 atau H-001" autocomplete="off">
+          <input id="j-custom-ref" placeholder="Contoh: PU-JV-202611 atau H-001" autocomplete="off">
         </label>
       </div>
     </div>
@@ -2245,7 +2408,7 @@ function bindJ() {
       t = document.getElementById("j-tgl").value,
       lines = [];
     let salah = "";
-    b.querySelectorAll(".jl").forEach(r => {
+    b.querySelectorAll("#j-baris .jl").forEach(r => {
       const rawVal = r.querySelector(".ja").value.trim();
       const aMatch = rawVal.split("—")[0].trim();
       const d = +r.querySelector(".jd").value || 0,
@@ -2267,7 +2430,7 @@ function bindJ() {
     e.textContent = "";
     const rfVal = document.getElementById("j-ref").value;
     const doc = { id: uid(), tgl: t, ket: document.getElementById("j-ket").value.trim() || "Jurnal Umum", lines };
-    
+
     let tipeRef = "", noRef = "";
     if (rfVal.startsWith("custom_")) {
       tipeRef = rfVal.replace("custom_", "");
@@ -2280,83 +2443,100 @@ function bindJ() {
       const parts = rfVal.split("|");
       tipeRef = parts[0];
       noRef = parts[1];
+    } else {
+      // Deteksi otomatis jika deskripsi mencantumkan kode piutang toko seperti PU-JV202611 / PU-JV-202611
+      const mKet = /\b(PU[-_]?(?:JV|JAVA|KONG|KF|LAZ|TT)[-_]?\d{6})\b/i.exec(doc.ket);
+      if (mKet && lines.some(l => l.akun === "1-10100" && (l.d > 0 || l.k > 0))) {
+        tipeRef = "piutang";
+        noRef = mKet[1].toUpperCase();
+      }
     }
 
     if (noRef) {
-      doc.ref = { tipe: tipeRef, no: noRef };
-
-      // Logika Gabung: Jika nomor hutang/piutang sudah ada di daftar HP, gabungkan nominalnya
-      const totalDebetAkun = lines.filter(l => l.d > 0).reduce((s, l) => s + l.d, 0);
-      const totalKreditAkun = lines.filter(l => l.k > 0).reduce((s, l) => s + l.k, 0);
-      const adaHP = HP.find(h => h.no.toLowerCase() === noRef.toLowerCase() && h.tipe === tipeRef);
-
       if (tipeRef === "piutang") {
-        const totalDebetPiutang = lines.filter(l => l.akun === "1-10100" && l.d > 0).reduce((s, l) => s + l.d, 0);
-        const totalKreditPiutang = lines.filter(l => l.akun === "1-10100" && l.k > 0).reduce((s, l) => s + l.k, 0);
-
-        if (totalDebetPiutang > 0) {
-          if (adaHP) {
-            adaHP.nom += totalDebetPiutang;
-          } else {
-            HP.push({
-              id: uid(),
-              tipe: "piutang",
-              no: noRef,
-              pihak: doc.ket || "Piutang " + noRef,
-              tgl: t,
-              tempo: "",
-              nom: totalDebetPiutang,
-              bayar: 0,
-              ket: doc.ket,
-              akun: "1-10100",
-              lawan: lines.find(l => l.k > 0)?.akun || "3-30000",
-              log: []
-            });
+        const infoTk = parseKodePiutangToko(noRef, t);
+        if (infoTk) {
+          // Piutang Toko (mis. PU-JV202611 -> PU-JV-202611):
+          // Simpan cukup di JR (tidak diduplikasi ke HP atau CA) sehingga:
+          // 1) Hanya muncul 1 kali di Daftar Jurnal Umum
+          // 2) Hanya muncul di Piutang Usaha Shopee per Toko & Bulan (tidak masuk ke Daftar Hutang & Piutang)
+          const totalDebetPiutang = lines.filter(l => l.akun === "1-10100" && l.d > 0).reduce((s, l) => s + l.d, 0);
+          const totalKreditPiutang = lines.filter(l => l.akun === "1-10100" && l.k > 0).reduce((s, l) => s + l.k, 0);
+          if (!totalDebetPiutang && !totalKreditPiutang) {
+            e.textContent = "Untuk referensi piutang toko (" + infoTk.kode + "), gunakan akun 1-10100 — Piutang Usaha pada baris jurnal.";
+            return;
           }
-        }
+          noRef = infoTk.kode;
+          doc.ref = { tipe: "piutang", no: noRef };
+        } else {
+          // Piutang Manual Non-Toko (mis. P-001)
+          doc.ref = { tipe: "piutang", no: noRef };
+          const adaHP = HP.find(h => h.no.toLowerCase() === noRef.toLowerCase() && h.tipe === "piutang");
+          const akunTarget = adaHP?.akun || lines.find(l => l.akun[0] === "1" && KAT[l.akun] !== "Kas & Bank")?.akun || "1-10100";
+          const totalDebetPiutang = lines.filter(l => l.akun === akunTarget && l.d > 0).reduce((s, l) => s + l.d, 0);
+          const totalKreditPiutang = lines.filter(l => l.akun === akunTarget && l.k > 0).reduce((s, l) => s + l.k, 0);
 
-        if (totalKreditPiutang > 0) {
-          if (adaHP) {
+          if (totalDebetPiutang > 0) {
+            if (adaHP) {
+              adaHP.nom += totalDebetPiutang;
+              adaHP.jrNom = (adaHP.jrNom || 0) + totalDebetPiutang;
+              adaHP.jrAdds = [...(adaHP.jrAdds || []), { id: doc.id, nom: totalDebetPiutang }];
+            } else {
+              HP.push({
+                id: uid(),
+                fromJr: doc.id,
+                tipe: "piutang",
+                no: noRef,
+                pihak: doc.ket || "Piutang " + noRef,
+                tgl: t,
+                tempo: "",
+                nom: totalDebetPiutang,
+                jrNom: totalDebetPiutang,
+                bayar: 0,
+                ket: doc.ket,
+                akun: akunTarget,
+                log: []
+              });
+            }
+          }
+          if (totalKreditPiutang > 0 && adaHP) {
             adaHP.bayar = (adaHP.bayar || 0) + totalKreditPiutang;
-            adaHP.log = [...(adaHP.log || []), { tgl: t, nom: totalKreditPiutang, akun: lines.find(l => l.d > 0)?.akun || "1-10003" }];
+            adaHP.log = [...(adaHP.log || []), { tgl: t, nom: totalKreditPiutang, akun: lines.find(l => l.d > 0)?.akun || "1-10003", fromJr: doc.id }];
           }
-          CA.push({
-            id: uid(),
-            tgl: t,
-            toko: noRef.includes("KONG") ? "kong" : "java",
-            kode: noRef,
-            nom: totalKreditPiutang,
-            akun: lines.find(l => l.d > 0)?.akun || "1-10003"
-          });
         }
       } else if (tipeRef === "hutang") {
-        const totalKreditHutang = lines.filter(l => l.akun === "2-20100" && l.k > 0).reduce((s, l) => s + l.k, 0);
-        const totalDebetHutang = lines.filter(l => l.akun === "2-20100" && l.d > 0).reduce((s, l) => s + l.d, 0);
+        doc.ref = { tipe: "hutang", no: noRef };
+        const adaHP = HP.find(h => h.no.toLowerCase() === noRef.toLowerCase() && h.tipe === "hutang");
+        const akunTarget = adaHP?.akun || lines.find(l => l.akun[0] === "2")?.akun || "2-20100";
+        const totalKreditHutang = lines.filter(l => l.akun === akunTarget && l.k > 0).reduce((s, l) => s + l.k, 0);
+        const totalDebetHutang = lines.filter(l => l.akun === akunTarget && l.d > 0).reduce((s, l) => s + l.d, 0);
 
         if (totalKreditHutang > 0) {
           if (adaHP) {
             adaHP.nom += totalKreditHutang;
+            adaHP.jrNom = (adaHP.jrNom || 0) + totalKreditHutang;
+            adaHP.jrAdds = [...(adaHP.jrAdds || []), { id: doc.id, nom: totalKreditHutang }];
           } else {
             HP.push({
               id: uid(),
+              fromJr: doc.id,
               tipe: "hutang",
               no: noRef,
               pihak: doc.ket || "Hutang " + noRef,
               tgl: t,
               tempo: "",
               nom: totalKreditHutang,
+              jrNom: totalKreditHutang,
               bayar: 0,
               ket: doc.ket,
-              akun: "2-20100",
-              lawan: lines.find(l => l.d > 0)?.akun || "1-10200",
+              akun: akunTarget,
               log: []
             });
           }
         }
-
         if (totalDebetHutang > 0 && adaHP) {
           adaHP.bayar = (adaHP.bayar || 0) + totalDebetHutang;
-          adaHP.log = [...(adaHP.log || []), { tgl: t, nom: totalDebetHutang, akun: lines.find(l => l.k > 0)?.akun || "1-10003" }];
+          adaHP.log = [...(adaHP.log || []), { tgl: t, nom: totalDebetHutang, akun: lines.find(l => l.k > 0)?.akun || "1-10003", fromJr: doc.id }];
         }
       }
     }
@@ -2364,11 +2544,27 @@ function bindJ() {
     JR.push(doc);
     S.thn = dt(t).getFullYear();
     simpanLokal();
-    info = "Jurnal berhasil disimpan dan terhubung ke buku besar & pelacakan hutang/piutang.";
+    info = "Jurnal berhasil disimpan" + (doc.ref ? " (" + doc.ref.no + ")" : "") + " tanpa duplikasi.";
     draw();
   };
   document.querySelectorAll("[data-id]").forEach(x => (x.onclick = () => {
-    JR = JR.filter(j => j.id != x.dataset.id);
+    const delId = x.dataset.id;
+    JR = JR.filter(j => j.id != delId);
+    // Bersihkan juga keterkaitan pada HP non-toko jika jurnal manual dihapus
+    HP = HP.filter(h => h.fromJr !== delId);
+    HP.forEach(h => {
+      if (h.jrAdds && h.jrAdds.some(a => a.id === delId)) {
+        const sub = h.jrAdds.filter(a => a.id === delId).reduce((s, a) => s + a.nom, 0);
+        h.nom = Math.max(0, h.nom - sub);
+        h.jrNom = Math.max(0, (h.jrNom || 0) - sub);
+        h.jrAdds = h.jrAdds.filter(a => a.id !== delId);
+      }
+      if (h.log && h.log.some(lg => lg.fromJr === delId)) {
+        const subBayar = h.log.filter(lg => lg.fromJr === delId).reduce((s, lg) => s + lg.nom, 0);
+        h.bayar = Math.max(0, (h.bayar || 0) - subBayar);
+        h.log = h.log.filter(lg => lg.fromJr !== delId);
+      }
+    });
     simpanLokal();
     draw();
   }));
@@ -2456,7 +2652,7 @@ async function impor(files, tk) {
       const no = String(r[C.no]).trim(), s0 = String(r[C.sku]).trim();
       if (!no || !s0) return;
       let sku = AL[s0] || s0;
-      
+
       if (!SKUS.some(x => x.sku == sku)) {
         const prefixSku = s0.split(/[-_\s]/)[0].toUpperCase();
         if (SKUS.some(x => x.sku == prefixSku)) {
@@ -2725,7 +2921,7 @@ function sp() {
 
   const flToko = S.spToko || "all";
   const flStatus = S.spStatus || "all";
-  
+
   const Lf = L.filter(x => {
     if (flToko !== "all" && x.toko !== flToko) return false;
     const sisa = x.net - x.bayar;
@@ -2819,7 +3015,7 @@ function sp() {
               return `<tr style="${isLunas ? "opacity:0.75" : ""}">
                 <td><code><b>${esc(x.kode)}</b></code></td>
                 <td style="text-align:left"><span class="badge ${x.toko == "kong" ? "wn" : "ok"}">${esc(labelToko(x.toko))}</span></td>
-                <td>${BL[+x.bln.slice(5) - 1]} ${x.bln.slice(0, 4)}</td>
+                <td>${BL[+x.bln.slice(5) - 1] || x.bln} ${x.bln.slice(0, 4)}</td>
                 <td>${rp(x.net)}</td>
                 <td class="pos">${rp(x.bayar)}</td>
                 <td><b>${rp(Math.max(0, sisa))}</b></td>
@@ -2875,8 +3071,10 @@ function sp() {
 
 function hp() {
   const hari = hariIni();
-  const sisa = t => HP.filter(h => h.tipe == t).reduce((s, h) => s + h.nom - (h.bayar || 0), 0);
-  const L = [...HP].sort((a, b) => b.tgl.localeCompare(a.tgl));
+  // Filter hanya hutang & piutang non-toko (piutang toko PU-JV / PU-KONG sudah tampil di tabel atas)
+  const hpNonToko = HP.filter(h => !(h.tipe == "piutang" && isPiutangToko(h.no)));
+  const sisa = t => hpNonToko.filter(h => h.tipe == t).reduce((s, h) => s + h.nom - (h.bayar || 0), 0);
+  const L = [...hpNonToko].sort((a, b) => b.tgl.localeCompare(a.tgl));
   return (
     sp() +
     `<div class="kpis">
@@ -2889,7 +3087,7 @@ function hp() {
         <div class="form">
           <label>Jenis<select id="h-tipe"><option value="hutang">Hutang</option><option value="piutang">Piutang</option></select></label>
           <label>No. Hutang / Piutang (Kustom / Otomatis)
-            <input id="h-custom-no" placeholder="Contoh: PU-JV-202610 (Kosongkan jika otomatis)" autocomplete="off">
+            <input id="h-custom-no" placeholder="Contoh: P-001 / H-001 (Kosongkan jika otomatis)" autocomplete="off">
           </label>
           <label>Nama Pihak / Supplier<input id="h-pihak" placeholder="Nama Supplier / Mitra"></label>
           <label>Tanggal<input type="date" id="h-tgl" value="${hari}"></label>
@@ -2908,7 +3106,7 @@ function hp() {
         <h2>Catat Pembayaran Cicilan / Pelunasan</h2>
         <div class="form">
           <label>Pilih Hutang/Piutang
-            <select id="y-id">${HP.filter(h => h.nom > (h.bayar || 0))
+            <select id="y-id">${hpNonToko.filter(h => h.nom > (h.bayar || 0))
               .map(h => `<option value="${esc(h.id)}">${esc(h.no + " " + h.pihak + " (sisa " + rp(h.nom - (h.bayar || 0)) + ")")}</option>`)
               .join("")}</select>
           </label>
@@ -2997,7 +3195,27 @@ function bindH() {
       no = (t == "hutang" ? "H-" : "P-") + String(mx + 1).padStart(3, "0");
     }
 
-    // Jika no piutang/hutang sudah ada, gabungkan nominalnya
+    // Jika yang diinput adalah Piutang Toko (misal PU-JV202611 / PU-JV-202611), simpan ke JR agar masuk ke Piutang Toko tanpa duplikasi di Daftar Hutang & Piutang
+    if (t === "piutang" && isPiutangToko(no)) {
+      const infoTk = parseKodePiutangToko(no, v("tgl"));
+      const kdToko = infoTk ? infoTk.kode : no;
+      JR.push({
+        id: uid(),
+        tgl: v("tgl"),
+        ket: v("ket").trim() || ("Piutang " + v("pihak").trim() + " (" + kdToko + ")"),
+        ref: { tipe: "piutang", no: kdToko },
+        lines: [
+          { akun: "1-10100", d: nom, k: 0 },
+          { akun: v("lawan"), d: 0, k: nom }
+        ]
+      });
+      simpanLokal();
+      info = `Piutang toko ${kdToko} sebesar ${rp(nom)} berhasil dicatat ke Piutang Usaha Shopee per Toko & Bulan.`;
+      draw();
+      return;
+    }
+
+    // Jika no piutang/hutang non-toko sudah ada, gabungkan nominalnya
     const adaHP = HP.find(h => h.no.toLowerCase() === no.toLowerCase() && h.tipe === t);
     if (adaHP) {
       adaHP.nom += nom;
@@ -3027,6 +3245,10 @@ function bindH() {
     draw();
   };
   document.querySelectorAll("[data-hd]").forEach(b => (b.onclick = () => {
+    const delHp = HP.find(h => h.id == b.dataset.hd);
+    if (delHp && delHp.fromJr) {
+      JR = JR.filter(j => j.id !== delHp.fromJr);
+    }
     HP = HP.filter(h => h.id != b.dataset.hd);
     simpanLokal();
     draw();
@@ -3059,26 +3281,19 @@ function bindH() {
       tgl = document.getElementById("c-tgl").value,
       target = (document.getElementById("c-target").value || "java|").split("|");
     const toko = target[0] || "java";
-    const kode = target[1] || "";
+    const rawKode = target[1] || "";
+    const parsed = rawKode ? parseKodePiutangToko(rawKode, tgl) : null;
+    const kode = parsed ? parsed.kode : rawKode;
     if (!tgl || !(nom > 0)) {
       e.textContent = "Isi tanggal dan nominal pencairan.";
       return;
     }
-    const item = { id: uid(), tgl, toko, nom, akun: document.getElementById("c-akun").value };
+    const item = { id: uid(), tgl, toko: parsed ? parsed.toko : toko, nom, akun: document.getElementById("c-akun").value };
     if (kode) item.kode = kode;
     CA.push(item);
 
-    // Sinkronkan ke data HP jika kode cocok dengan nomor piutang manual
-    if (kode) {
-      const matchHP = HP.find(h => h.no.toLowerCase() === kode.toLowerCase() && h.tipe === "piutang");
-      if (matchHP) {
-        matchHP.bayar = (matchHP.bayar || 0) + nom;
-        matchHP.log = [...(matchHP.log || []), { tgl, nom, akun: document.getElementById("c-akun").value }];
-      }
-    }
-
     simpanLokal();
-    info = "Pencairan dana Shopee " + labelToko(toko) + (kode ? " (" + kode + ")" : "") + " sebesar " + rp(nom) + " berhasil dicatat.";
+    info = "Pencairan dana Shopee " + labelToko(item.toko) + (kode ? " (" + kode + ")" : "") + " sebesar " + rp(nom) + " berhasil dicatat.";
     draw();
   };
   document.querySelectorAll("[data-cd]").forEach(b => (b.onclick = () => {
@@ -3867,6 +4082,7 @@ function bindD() {
         if (d.AKUN) AKUN = d.AKUN;
         if (d.KATS) KATS = d.KATS;
         if (d.SKUS) SKUS = d.SKUS;
+        sanitasiData();
         rebuildAK();
         simpanLokal();
         info = "Cadangan data berhasil dipulihkan!";
@@ -4221,7 +4437,7 @@ function draw() {
       banner() +
       (T[S.tab] || dash)() +
       (S.tab == "data" ? "" : '<p id="gd-wrap"><button class="x" id="gd" type="button" style="color:var(--ac)">⚙️ Kelola Cadangan Data &amp; Reset Database</button></p>');
-    
+
     // Pasang listener untuk tombol tutup banner notifikasi
     const btnTutup = document.getElementById("btn-tutup-banner");
     if (btnTutup) {
