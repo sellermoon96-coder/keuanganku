@@ -3429,36 +3429,38 @@ function beli() {
   </div>
   <div class="panel">
     <h2>Catat Pembelian Barang Dagang (Restock)</h2>
-    ${
-      INV.length
-        ? `<div class="form">
-            <label>Tanggal<input type="date" id="b-tgl" value="${hari}"></label>
-            <label>Supplier / Toko<input id="b-toko" placeholder="Nama distributor / supplier"></label>
-            <label>Barang (SKU)<select id="b-sku">${INV.map(i => `<option value="${esc(i.sku)}">${esc(i.sku + " — " + i.nama)}</option>`).join("")}</select></label>
-            <label>Jumlah Masuk<input type="number" id="b-jml" min="1" value="10"></label>
-            <label>Harga Beli Satuan (Rp)<input type="number" id="b-hrg" min="0" value="${INV[0]?.hrg || 0}"></label>
-            <label>Dibayar Dari
-              <select id="b-bayar">
-                ${kasOp()}
-                <option value="2-20100">Hutang Usaha (Tempo / Belum Dibayar)</option>
-              </select>
-            </label>
-            <button class="btn" id="b-add">Simpan Pembelian</button>
-          </div>
-          <div id="b-err" class="neg" role="alert"></div>`
-        : '<div class="empty">Tambahkan produk di Persediaan Barang dulu.</div>'
-    }
+    <div class="form">
+      <label>Tanggal<input type="date" id="b-tgl" value="${hari}"></label>
+      <label>Supplier / Toko<input id="b-toko" placeholder="Nama distributor / supplier"></label>
+      <label>Barang (SKU)
+        <input id="b-sku" list="b-sku-list" placeholder="Pilih atau ketik SKU baru..." autocomplete="off">
+        <datalist id="b-sku-list">
+          ${INV.map(i => `<option value="${esc(i.sku)}">${esc(i.nama ? i.sku + " - " + i.nama : i.sku)}</option>`).join("")}
+        </datalist>
+      </label>
+      <label>Nama Barang (Opsional)<input id="b-nama" placeholder="Nama produk jika barang baru"></label>
+      <label>Jumlah Masuk<input type="number" id="b-jml" min="1" value="10"></label>
+      <label>Harga Beli Satuan (Rp)<input type="number" id="b-hrg" min="0" value="${INV[0]?.hrg || 0}"></label>
+      <label>Dibayar Dari
+        <select id="b-bayar">
+          ${kasOp()}
+          <option value="2-20100">Hutang Usaha (Tempo / Belum Dibayar)</option>
+        </select>
+      </label>
+      <button class="btn" id="b-add">Simpan Pembelian</button>
+    </div>
+    <div id="b-err" class="neg" role="alert"></div>
   </div>
   <div class="panel scroll">
     <h2>Riwayat Pembelian Barang</h2>
     ${
       L.length
         ? `<table>
-            <thead><tr><th>Tanggal</th><th>Supplier</th><th>SKU</th><th>Jumlah</th><th>Harga Satuan</th><th>Total</th><th>Pembayaran</th><th></th></tr></thead>
+            <thead><tr><th>Tanggal</th><th>Supplier</th><th>SKU</th><th>Jumlah</th><th>Harga Satuan</th><th>Total</th><th>Sumber Dana</th><th>Aksi</th></tr></thead>
             <tbody>${L.map(
               b => `<tr>
                 <td>${b.tgl}</td>
-                <td>${esc(b.toko || "–")}</td>
+                <td>${esc(b.toko || "-")}</td>
                 <td><b>${esc(b.sku)}</b></td>
                 <td>${b.jml}</td>
                 <td>${rp(b.hrg)}</td>
@@ -3474,6 +3476,69 @@ function beli() {
 }
 
 function bindB() {
+  const skInput = document.getElementById("b-sku");
+  if (skInput) {
+    skInput.oninput = () => {
+      const val = skInput.value.trim().toUpperCase();
+      const f = INV.find(i => i.sku.toUpperCase() === val);
+      if (f) {
+        document.getElementById("b-hrg").value = f.hrg;
+        const namaEl = document.getElementById("b-nama");
+        if (namaEl && f.nama) namaEl.value = f.nama;
+      }
+    };
+  }
+  const a = document.getElementById("b-add");
+  if (a) {
+    a.onclick = () => {
+      const v = i => (document.getElementById("b-" + i)?.value || "");
+      const e = document.getElementById("b-err"), jml = +v("jml"), hrg = +v("hrg");
+      const skuVal = v("sku").trim().toUpperCase();
+      if (!v("tgl") || !skuVal || !(jml > 0) || v("hrg") === "") {
+        e.textContent = "Isi tanggal, SKU barang, jumlah, dan harga satuan.";
+        return;
+      }
+      e.textContent = "";
+      const id = uid(), tg = v("tgl");
+      const namaVal = v("nama").trim() || skuVal;
+
+      if (!INV.find(i => i.sku.toUpperCase() === skuVal)) {
+        INV.push({
+          sku: skuVal,
+          nama: namaVal,
+          stok: 0,
+          hrg: hrg
+        });
+      }
+
+      BE.push({ id, tgl: tg, toko: v("toko").trim(), sku: skuVal, jml, hrg, bayar: v("bayar") });
+      if (v("bayar") == "2-20100") {
+        const mx = Math.max(0, ...HP.filter(h => h.tipe == "hutang").map(h => +String(h.no).slice(2) || 0));
+        HP.push({
+          id: "b" + id,
+          tipe: "hutang",
+          no: "H-" + String(mx + 1).padStart(3, "0"),
+          pihak: v("toko").trim() || "Supplier",
+          tgl: tg,
+          nom: jml * hrg,
+          bayar: 0,
+          ket: "Pembelian " + skuVal,
+          akun: "2-20100",
+          log: []
+        });
+      }
+      simpanLokal();
+      draw();
+    };
+  }
+  document.querySelectorAll("[data-bd]").forEach(b => (b.onclick = () => {
+    const id = b.dataset.bd;
+    BE = BE.filter(x => x.id != id);
+    HP = HP.filter(x => x.id != "b" + id);
+    simpanLokal();
+    draw();
+  }));
+}
   const skSel = document.getElementById("b-sku");
   if (skSel) {
     skSel.onchange = () => {
