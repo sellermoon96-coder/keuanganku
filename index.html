@@ -70,7 +70,7 @@ body {
 }
 header {
   padding: 18px 20px 0;
-  max-width: 1180px;
+  max-width: 100%;
   margin: auto;
   display: flex;
   flex-direction: column;
@@ -166,7 +166,7 @@ button:focus-visible, input:focus-visible, select:focus-visible {
   outline-offset: 2px;
 }
 main {
-  max-width: 1180px;
+  max-width: 100%;
   margin: auto;
   padding: 18px 20px 40px;
 }
@@ -328,6 +328,58 @@ tr.t td { font-weight: 700; border-top: 2px solid var(--ink); }
 }
 .x:hover { background: rgba(197, 48, 48, 0.1); }
 .empty { color: var(--mut); padding: 18px 0; text-align: center; font-style: italic; }
+
+/* Full-Face / Full-Width Tabel Daftar Jurnal Umum (Tanpa Scroll Samping) */
+.panel-jurnal-full {
+  overflow-x: visible;
+  padding: 14px 14px;
+}
+.tbl-jurnal {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+  font-size: clamp(11px, 1.02vw, 12.8px);
+}
+.tbl-jurnal th,
+.tbl-jurnal td {
+  padding: 6px 5px;
+  white-space: normal;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  vertical-align: top;
+  line-height: 1.35;
+}
+.tbl-jurnal th {
+  font-size: clamp(10px, 0.92vw, 11.5px);
+  letter-spacing: 0.01em;
+  vertical-align: middle;
+}
+.tbl-jurnal th:nth-child(1), .tbl-jurnal td:nth-child(1) { width: 3%; text-align: center; }
+.tbl-jurnal th:nth-child(2), .tbl-jurnal td:nth-child(2) { width: 7.5%; text-align: left; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.tbl-jurnal th:nth-child(3), .tbl-jurnal td:nth-child(3) { width: 7.5%; text-align: left; font-size: clamp(10.5px, 0.95vw, 12px); }
+.tbl-jurnal th:nth-child(4), .tbl-jurnal td:nth-child(4) { width: 5.2%; text-align: left; font-size: clamp(10.5px, 0.95vw, 12px); }
+.tbl-jurnal th:nth-child(5), .tbl-jurnal td:nth-child(5) { width: 8.3%; text-align: left; color: var(--mut); }
+.tbl-jurnal th:nth-child(6), .tbl-jurnal td:nth-child(6) { width: 13.5%; text-align: left; font-weight: 600; }
+.tbl-jurnal th:nth-child(7), .tbl-jurnal td:nth-child(7) { width: 5.8%; text-align: center; white-space: nowrap; }
+.tbl-jurnal th:nth-child(8), .tbl-jurnal td:nth-child(8) { width: 17.2%; text-align: left; }
+.tbl-jurnal th:nth-child(9), .tbl-jurnal td:nth-child(9) { width: 9%; text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.tbl-jurnal th:nth-child(10), .tbl-jurnal td:nth-child(10) { width: 9%; text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.tbl-jurnal th:nth-child(11), .tbl-jurnal td:nth-child(11) { width: 9%; text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; font-weight: 600; }
+.tbl-jurnal th:nth-child(12), .tbl-jurnal td:nth-child(12) { width: 5%; text-align: center; }
+.tbl-jurnal code {
+  font-size: clamp(10px, 0.92vw, 11.5px);
+  background: var(--sf2);
+  padding: 1px 4px;
+  border-radius: 4px;
+}
+.tbl-jurnal .badge {
+  padding: 2px 5px;
+  font-size: 10px;
+}
+.tbl-jurnal .x {
+  padding: 2px 5px;
+  font-size: 11px;
+}
 
 /* Executive Dashboard Styles */
 .db h1 {
@@ -613,7 +665,7 @@ tbody tr:hover td { background: color-mix(in srgb, var(--ac) 6%, transparent); }
 <main id="app"></main>
 <p class="no-print" style="text-align:center;color:var(--mut);font-size:12px;margin:16px 20px 0">Data tersimpan di browser perangkat ini &amp; Firebase. Unduh Cadangan Data secara berkala.</p>
 
-<footer style="max-width:1180px;margin:20px auto 40px;padding:0 20px;display:flex;justify-content:center;align-items:center;gap:12px;flex-wrap:wrap;" class="no-print">
+<footer style="max-width:100%;margin:20px auto 40px;padding:0 20px;display:flex;justify-content:center;align-items:center;gap:12px;flex-wrap:wrap;" class="no-print">
   <button type="button" class="pill-btn demo" id="btn-demo" title="Isi dengan contoh transaksi Q4 2026 agar grafik & laporan langsung terlihat">✨ Muat Data Contoh 4Q26</button>
   <button type="button" class="pill-btn" id="btn-backup" title="Cadangkan atau pulihkan database">💾 Cadangan Data</button>
   <button type="button" class="pill-btn" id="btn-theme" title="Ganti tema Terang / Gelap">🌓 Tema</button>
@@ -639,8 +691,8 @@ tbody tr:hover td { background: color-mix(in srgb, var(--ac) 6%, transparent); }
   let app, analytics, dbFirestore;
   try {
     app = initializeApp(firebaseConfig);
-    analytics = getAnalytics(app);
     dbFirestore = getFirestore(app);
+    try { analytics = getAnalytics(app); } catch (e) {}
     console.log("Firebase berhasil diinisialisasi pada aplikasi web Keuangan Elzamora!");
   } catch (err) {
     console.warn("Firebase inisialisasi offline fallback:", err);
@@ -814,6 +866,16 @@ const DEFAULT_INV = [
   { sku: "MLUS", nama: "MS GLOW Luminous series", stok: 60, hrg: 180000 }
 ];
 
+const DEMO_JR_IDS = new Set(["jr_init_1", "jr_exp_oct", "jr_exp_nov", "jr_exp_dec"]);
+const DEMO_BE_IDS = new Set(["be_1", "be_2", "be_3"]);
+const DEMO_HP_IDS = new Set(["bbe_3"]);
+const DEMO_CA_IDS = new Set(["ca_1", "ca_2", "ca_3", "ca_4", "ca_5", "ca_6", "ca_7", "ca_8", "ca_9", "ca_10"]);
+const DEMO_P_NOS = new Set([
+  "260715JV001", "260720KF002", "260812JV003", "260819KF004", "260909JV005",
+  "260921KF006", "261005JV101", "261010KF102", "261018JV103", "261111JV201",
+  "261112KF202", "261122JV203", "261212JV301", "261212KF302", "261220JV303"
+]);
+
 let JR = [], P = [], INV = [], BE = [], HP = [], CA = [], OP = [];
 let AKUN = SETUP0.akun.map(a => ({ kode: a[0], nama: a[1], kat: a[2] }));
 let KATS = SETUP0.kat.map(k => ({ kat: k[0], arus: k[1], normal: k[2] }));
@@ -892,6 +954,43 @@ const isPiutangToko = no => !!parseKodePiutangToko(no);
 // Bersihkan duplikasi data piutang toko / jurnal manual dari versi sebelumnya
 function sanitasiData() {
   let berubah = false;
+
+  // 0. Bersihkan data contoh (demo) jika sempat tersimpan otomatis sebelumnya
+  const jrLen0 = JR.length;
+  JR = JR.filter(j => !DEMO_JR_IDS.has(j.id));
+  if (JR.length !== jrLen0) berubah = true;
+
+  const beLen0 = BE.length;
+  BE = BE.filter(b => !DEMO_BE_IDS.has(b.id));
+  if (BE.length !== beLen0) berubah = true;
+
+  const hpLen0 = HP.length;
+  HP = HP.filter(h => !DEMO_HP_IDS.has(h.id));
+  if (HP.length !== hpLen0) berubah = true;
+
+  const caLen0 = CA.length;
+  CA = CA.filter(c => !DEMO_CA_IDS.has(c.id));
+  if (CA.length !== caLen0) berubah = true;
+
+  const pLen0 = P.length;
+  P = P.filter(p => !DEMO_P_NOS.has(p.no));
+  if (P.length !== pLen0) berubah = true;
+
+  const isDefaultInv =
+    INV.length === 4 &&
+    INV[0].sku === "MUS" && INV[0].stok === 100 && INV[0].hrg === 180000 &&
+    INV[1].sku === "MWS" && INV[1].stok === 85 && INV[1].hrg === 180000 &&
+    INV[2].sku === "MAS" && INV[2].stok === 70 && INV[2].hrg === 180000 &&
+    INV[3].sku === "MLUS" && INV[3].stok === 60 && INV[3].hrg === 180000;
+  if (isDefaultInv) {
+    INV = ["MUS", "HAS", "MFS60", "MFS100", "RC10", "HAS-3"].map(c => ({
+      sku: c,
+      nama: (SKUS.find(x => x.sku == c) || {}).nama || c,
+      stok: 0,
+      hrg: 0
+    }));
+    berubah = true;
+  }
 
   // 1. Normalisasi kode piutang toko pada Jurnal Umum Manual (JR)
   JR.forEach(j => {
@@ -1030,13 +1129,14 @@ function DOCS() {
     "keuangan/ca": { d: CA }, "keuangan/op": { d: OP }, "keuangan/setup": { akun: AKUN, kats: KATS, skus: SKUS }
   };
   const m = {};
+  Object.keys(MP).forEach(k => (m[k] = []));
   P.forEach(p => { const k = String(p.tgl).slice(0, 7); (m[k] = m[k] || []).push(p); });
   Object.keys(m).forEach(k => (o["penjualan/" + k] = { d: m[k] }));
   return o;
 }
 function syncOnline() {
   clearTimeout(tmrSync);
-  if (!window.dbFirestore) return;
+  if (!ONLINE || !window.dbFirestore) return;
   setStatus("Menyimpan ke online…");
   tmrSync = setTimeout(async () => {
     try {
@@ -1108,7 +1208,7 @@ function muatLokal() {
       const d = JSON.parse(raw);
       JR = d.JR || [];
       P = d.P || [];
-      INV = d.INV || DEFAULT_INV;
+      INV = d.INV || ["MUS", "HAS", "MFS60", "MFS100", "RC10", "HAS-3"].map(c => ({ sku: c, nama: (SKUS.find(x => x.sku == c) || {}).nama || c, stok: 0, hrg: 0 }));
       BE = d.BE || [];
       HP = d.HP || [];
       CA = d.CA || [];
@@ -1122,7 +1222,7 @@ function muatLokal() {
       return true;
     }
   } catch (e) {}
-  INV = JSON.parse(JSON.stringify(DEFAULT_INV));
+  INV = ["MUS", "HAS", "MFS60", "MFS100", "RC10", "HAS-3"].map(c => ({ sku: c, nama: (SKUS.find(x => x.sku == c) || {}).nama || c, stok: 0, hrg: 0 }));
   return false;
 }
 
@@ -1239,7 +1339,7 @@ function muatDataDemo(silent = false) {
 
   S.thn = 2026;
   S.bln = "ytd";
-  localStorage.removeItem("elzamora_sudah_direset");
+  try { localStorage.removeItem("elzamora_sudah_direset"); } catch (e) {}
   simpanLokal();
   if (!silent) {
     info = "Data contoh Laporan Keuangan 4Q26 berhasil dimuat! Semua grafik, jurnal otomatis, dan neraca kini terisi.";
@@ -2345,14 +2445,14 @@ function jr() {
     <button class="btn" id="j-simpan">Simpan Jurnal</button>
     <div id="j-err" class="neg" role="alert" style="margin-top:6px"></div>
   </div>
-  <div class="panel scroll">
+  <div class="panel panel-jurnal-full">
     <h2>
       <span>Daftar Jurnal Umum (${E.length} Transaksi)</span>
       <input id="jr-cari" placeholder="Cari deskripsi, akun, atau tanggal…" value="${esc(S.jrQ)}" style="font-weight:400;width:260px">
     </h2>
     ${
       rows
-        ? `<table>
+        ? `<table class="tbl-jurnal" id="tbl-jurnal">
             <thead><tr><th>No</th><th>Tanggal</th><th>No. Piutang</th><th>No. Hutang</th><th>Kategori</th><th>Nama Akun</th><th>Kode</th><th>Deskripsi Transaksi</th><th>Debet</th><th>Kredit</th><th>Balance</th><th></th></tr></thead>
             <tbody>${rows}</tbody>
           </table>`
@@ -4074,7 +4174,7 @@ function bindD() {
         if (!ok) { e.target.value = ""; return; }
         JR = d.JR || [];
         P = d.P || [];
-        INV = d.INV || DEFAULT_INV;
+        INV = d.INV || ["MUS", "HAS", "MFS60", "MFS100", "RC10", "HAS-3"].map(c => ({ sku: c, nama: (SKUS.find(x => x.sku == c) || {}).nama || c, stok: 0, hrg: 0 }));
         BE = d.BE || [];
         HP = d.HP || [];
         CA = d.CA || [];
@@ -4133,7 +4233,7 @@ function bindD() {
     S.opDraft = {};
     // Nol-kan stok kartu persediaan tanpa menghapus SKU
     INV.forEach(i => { i.stok = 0; });
-    localStorage.setItem("elzamora_sudah_direset", "true");
+    try { localStorage.setItem("elzamora_sudah_direset", "true"); } catch (e) {}
     simpanLokal();
     info = "Semua transaksi berhasil dikosongkan. Master Akun, SKU, dan Kartu Persediaan (stok 0) tetap tersimpan.";
     S.tab = "dash";
@@ -4456,29 +4556,26 @@ function draw() {
 }
 
 function mulai() {
-  const savedTheme = localStorage.getItem("ktoko_theme");
+  let savedTheme = null;
+  try { savedTheme = localStorage.getItem("ktoko_theme"); } catch (e) {}
   if (savedTheme) document.documentElement.setAttribute("data-theme", savedTheme);
 
   document.getElementById("btn-theme").onclick = () => {
     const cur = document.documentElement.getAttribute("data-theme");
     const next = cur === "dark" ? "light" : "dark";
     document.documentElement.setAttribute("data-theme", next);
-    localStorage.setItem("ktoko_theme", next);
+    try { localStorage.setItem("ktoko_theme", next); } catch (e) {}
   };
   document.getElementById("btn-demo").onclick = mintaDemo;
   document.getElementById("btn-backup").onclick = () => { S.tab = "data"; draw(); };
 
-  const ada = muatLokal();
+  muatLokal();
   rebuildAK();
   setStatus("Menghubungkan ke Firebase Firestore…");
   draw();
   sambungOnline().then(ok => {
-    const sudahReset = localStorage.getItem("elzamora_sudah_direset") === "true";
     if (!ok) {
       setStatus("Mode offline · data lokal", true);
-      if (!ada && !sudahReset) {
-        muatDataDemo(true);
-      }
     }
     draw();
   });
