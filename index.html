@@ -10,17 +10,21 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
 :root {
-  --bg: #f4f6f4;
+  --bg: #f3f5f8;
   --sf: #ffffff;
-  --sf2: #f9fbf9;
+  --sf2: #f7f9fc;
   --ink: #182625;
-  --mut: #647573;
-  --ln: #dce2de;
+  --mut: #64748b;
+  --ln: #e2e8f0;
   --ac: #0f766e;
+  --ac-soft: rgba(15, 118, 110, 0.10);
   --ac-hov: #0d635c;
   --neg: #c53030;
   --pos: #0f766e;
   --warn: #d97706;
+  --sidebar-w: 244px;
+  --sidebar-w-mini: 68px;
+  --topbar-h: 58px;
   --shadow: 0 2px 6px rgba(24, 38, 37, 0.05), 0 1px 2px rgba(24, 38, 37, 0.04);
   box-sizing: border-box;
   padding-top: env(safe-area-inset-top, 0px);
@@ -36,6 +40,7 @@
     --mut: #94a6a3;
     --ln: #283836;
     --ac: #2dd4bf;
+    --ac-soft: rgba(45, 212, 191, 0.14);
     --ac-hov: #14b8a6;
     --neg: #f87171;
     --pos: #34d399;
@@ -52,6 +57,7 @@
   --mut: #94a6a3;
   --ln: #283836;
   --ac: #2dd4bf;
+  --ac-soft: rgba(45, 212, 191, 0.14);
   --ac-hov: #14b8a6;
   --neg: #f87171;
   --pos: #34d399;
@@ -59,34 +65,51 @@
   --shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
   color-scheme: dark;
 }
-* { box-sizing: border-box; }
+*, *::before, *::after { box-sizing: border-box; }
 html { scroll-padding-top: env(safe-area-inset-top, 0px); }
 body {
   margin: 0;
   background: var(--bg);
   color: var(--ink);
-  font: 14.5px/1.55 "Plus Jakarta Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  font: 14px/1.55 "Plus Jakarta Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
   -webkit-font-smoothing: antialiased;
 }
-header {
-  padding: 18px 20px 0;
-  max-width: 100%;
-  margin: auto;
+
+/* ===== APP SHELL (ALA MEKARI JURNAL) ===== */
+.app-shell {
+  display: flex;
+  min-height: 100vh;
+}
+
+/* Sidebar Kiri */
+.sidebar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: var(--sidebar-w);
+  background: var(--sf);
+  border-right: 1px solid var(--ln);
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  z-index: 40;
+  transition: width 0.2s ease, transform 0.22s ease;
 }
-.header-top {
+.sidebar-head {
+  height: var(--topbar-h);
+  padding: 0 14px;
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  flex-wrap: wrap;
-  gap: 12px;
+  justify-content: space-between;
+  gap: 8px;
+  border-bottom: 1px solid var(--ln);
+  flex-shrink: 0;
 }
 .brand {
   display: flex;
   align-items: center;
   gap: 10px;
+  min-width: 0;
 }
 .brand-badge {
   width: 34px;
@@ -98,25 +121,254 @@ header {
   place-items: center;
   font-weight: 800;
   font-size: 16px;
+  flex-shrink: 0;
   box-shadow: var(--shadow);
 }
-h1 {
-  font-size: 20px;
-  margin: 0;
-  letter-spacing: -.02em;
+.brand-text {
+  min-width: 0;
+  overflow: hidden;
+}
+.brand-name {
+  font-size: 15.5px;
   font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .sub-brand {
-  font-size: 12px;
+  font-size: 11px;
   color: var(--mut);
   font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
-.header-actions {
+.icon-btn {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--mut);
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  display: inline-grid;
+  place-items: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.icon-btn:hover {
+  background: var(--sf2);
+  color: var(--ink);
+  border-color: var(--ln);
+}
+
+/* Navigasi Vertikal Sidebar */
+.sidebar-nav {
+  flex: 1;
+  overflow-y: auto;
+  padding: 10px 10px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.nav-sep {
+  height: 1px;
+  background: var(--ln);
+  margin: 8px 6px;
+  flex-shrink: 0;
+}
+.nav-item {
+  width: 100%;
+  background: transparent;
+  border: 0;
+  border-radius: 8px;
+  color: var(--mut);
+  padding: 9px 11px;
+  font: inherit;
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 11px;
+  text-align: left;
+  position: relative;
+  transition: background 0.15s, color 0.15s;
+}
+.nav-item svg {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  stroke-width: 1.9;
+}
+.nav-item span {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.nav-item:hover {
+  background: var(--sf2);
+  color: var(--ink);
+}
+.nav-item[aria-selected="true"] {
+  background: var(--ac-soft);
+  color: var(--ac);
+  font-weight: 700;
+}
+.nav-item[aria-selected="true"]::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 7px;
+  bottom: 7px;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: var(--ac);
+}
+
+/* Footer Sidebar (Aksi Cepat) */
+.sidebar-foot {
+  border-top: 1px solid var(--ln);
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.sidebar-foot .pill-btn {
+  width: 100%;
+  justify-content: flex-start;
+  padding: 7px 10px;
+  font-size: 12.5px;
+  box-shadow: none;
+}
+
+/* Mode Sidebar Mini (Collapse Desktop) */
+.app-shell.is-mini .sidebar {
+  width: var(--sidebar-w-mini);
+}
+.app-shell.is-mini .brand-text,
+.app-shell.is-mini .nav-item span,
+.app-shell.is-mini .sidebar-foot .btn-lbl {
+  display: none;
+}
+.app-shell.is-mini .sidebar-head {
+  justify-content: center;
+  padding: 0 8px;
+}
+.app-shell.is-mini .brand {
+  display: none;
+}
+.app-shell.is-mini .nav-item,
+.app-shell.is-mini .sidebar-foot .pill-btn {
+  justify-content: center;
+  padding: 10px;
+}
+.app-shell.is-mini .main-wrap {
+  margin-left: var(--sidebar-w-mini);
+}
+
+/* Area Konten Kanan */
+.main-wrap {
+  flex: 1;
+  min-width: 0;
+  margin-left: var(--sidebar-w);
+  display: flex;
+  flex-direction: column;
+  transition: margin-left 0.2s ease;
+}
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 25;
+  height: var(--topbar-h);
+  background: var(--sf);
+  border-bottom: 1px solid var(--ln);
+  padding: 0 22px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.topbar-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+.topbar-title {
+  font-size: 18px;
+  margin: 0;
+  letter-spacing: -0.02em;
+  font-weight: 800;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
   flex-wrap: wrap;
 }
+.btn-mobile-menu {
+  display: none;
+}
+.sidebar-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 22, 0.45);
+  z-index: 35;
+}
+
+@media (max-width: 920px) {
+  .sidebar {
+    transform: translateX(-100%);
+    width: var(--sidebar-w) !important;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.22);
+  }
+  .app-shell.is-open .sidebar {
+    transform: translateX(0);
+  }
+  .app-shell.is-open .sidebar-overlay {
+    display: block;
+  }
+  .app-shell.is-mini .brand,
+  .app-shell.is-mini .brand-text,
+  .app-shell.is-mini .nav-item span,
+  .app-shell.is-mini .sidebar-foot .btn-lbl {
+    display: initial;
+  }
+  .app-shell.is-mini .sidebar-head {
+    justify-content: space-between;
+    padding: 0 14px;
+  }
+  .app-shell.is-mini .brand {
+    display: flex;
+  }
+  .app-shell.is-mini .nav-item,
+  .app-shell.is-mini .sidebar-foot .pill-btn {
+    justify-content: flex-start;
+    padding: 9px 11px;
+  }
+  .main-wrap,
+  .app-shell.is-mini .main-wrap {
+    margin-left: 0;
+  }
+  .btn-mobile-menu {
+    display: inline-grid;
+  }
+  #btn-collapse-sidebar {
+    display: none;
+  }
+  .topbar {
+    padding: 0 14px;
+  }
+}
+
 .pill-btn {
   background: var(--sf);
   border: 1px solid var(--ln);
@@ -129,46 +381,67 @@ h1 {
   cursor: pointer;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 7px;
   box-shadow: var(--shadow);
   transition: all 0.15s ease;
 }
 .pill-btn:hover { border-color: var(--ac); color: var(--ac); }
-.pill-btn.demo { background: rgba(15, 118, 110, 0.08); border-color: var(--ac); color: var(--ac); }
+.pill-btn.demo { background: var(--ac-soft); border-color: var(--ac); color: var(--ac); }
 
-nav {
+/* Sub-tab Bar ala Mekari Jurnal (untuk Laporan & Setup) */
+.subtabs {
   display: flex;
+  align-items: center;
   gap: 4px;
+  background: var(--sf);
+  border: 1px solid var(--ln);
+  border-radius: 10px;
+  padding: 0 12px;
+  margin-bottom: 16px;
   overflow-x: auto;
-  border-bottom: 1px solid var(--ln);
   scrollbar-width: none;
+  box-shadow: var(--shadow);
 }
-nav::-webkit-scrollbar { display: none; }
-nav button {
+.subtabs::-webkit-scrollbar { display: none; }
+.subtab-btn {
   background: none;
   border: 0;
-  border-bottom: 3px solid transparent;
+  border-bottom: 2.5px solid transparent;
   color: var(--mut);
-  padding: 10px 14px;
+  padding: 12px 14px;
   font: inherit;
+  font-size: 13.5px;
   font-weight: 600;
   cursor: pointer;
   white-space: nowrap;
   transition: color 0.15s, border-color 0.15s;
 }
-nav button:hover { color: var(--ink); }
-nav button[aria-selected=true] {
+.subtab-btn:hover { color: var(--ink); }
+.subtab-btn.active {
   color: var(--ac);
-  border-color: var(--ac);
+  border-bottom-color: var(--ac);
+  font-weight: 700;
 }
+.subtabs-right {
+  margin-left: auto;
+  padding: 6px 0 6px 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
 button:focus-visible, input:focus-visible, select:focus-visible {
   outline: 2px solid var(--ac);
   outline-offset: 2px;
 }
 main {
   max-width: 100%;
-  margin: auto;
-  padding: 18px 20px 40px;
+  width: 100%;
+  padding: 18px 22px 32px;
+}
+@media (max-width: 640px) {
+  main { padding: 14px 12px 28px; }
 }
 .bar {
   display: flex;
@@ -293,7 +566,7 @@ th {
   letter-spacing: 0.02em;
 }
 th:first-child, td:first-child { text-align: left; }
-tbody tr:hover td { background: var(--sf2); }
+tbody tr:hover td { background: color-mix(in srgb, var(--ac) 6%, transparent); }
 tr.g td { font-weight: 700; background: var(--bg); }
 tr.t td { font-weight: 700; border-top: 2px solid var(--ink); }
 .neg { color: var(--neg); }
@@ -329,16 +602,17 @@ tr.t td { font-weight: 700; border-top: 2px solid var(--ink); }
 .x:hover { background: rgba(197, 48, 48, 0.1); }
 .empty { color: var(--mut); padding: 18px 0; text-align: center; font-style: italic; }
 
-/* Full-Face / Full-Width Tabel Daftar Jurnal Umum (Tanpa Scroll Samping) */
+/* Full-Face / Full-Width Tabel Daftar Jurnal Umum */
 .panel-jurnal-full {
-  overflow-x: visible;
+  overflow-x: auto;
   padding: 14px 14px;
 }
 .tbl-jurnal {
   width: 100%;
+  min-width: 860px;
   table-layout: fixed;
   border-collapse: collapse;
-  font-size: clamp(11px, 1.02vw, 12.8px);
+  font-size: clamp(11px, 0.98vw, 12.6px);
 }
 .tbl-jurnal th,
 .tbl-jurnal td {
@@ -350,14 +624,14 @@ tr.t td { font-weight: 700; border-top: 2px solid var(--ink); }
   line-height: 1.35;
 }
 .tbl-jurnal th {
-  font-size: clamp(10px, 0.92vw, 11.5px);
+  font-size: clamp(10px, 0.88vw, 11.5px);
   letter-spacing: 0.01em;
   vertical-align: middle;
 }
 .tbl-jurnal th:nth-child(1), .tbl-jurnal td:nth-child(1) { width: 3%; text-align: center; }
 .tbl-jurnal th:nth-child(2), .tbl-jurnal td:nth-child(2) { width: 7.5%; text-align: left; white-space: nowrap; font-variant-numeric: tabular-nums; }
-.tbl-jurnal th:nth-child(3), .tbl-jurnal td:nth-child(3) { width: 7.5%; text-align: left; font-size: clamp(10.5px, 0.95vw, 12px); }
-.tbl-jurnal th:nth-child(4), .tbl-jurnal td:nth-child(4) { width: 5.2%; text-align: left; font-size: clamp(10.5px, 0.95vw, 12px); }
+.tbl-jurnal th:nth-child(3), .tbl-jurnal td:nth-child(3) { width: 7.5%; text-align: left; }
+.tbl-jurnal th:nth-child(4), .tbl-jurnal td:nth-child(4) { width: 5.2%; text-align: left; }
 .tbl-jurnal th:nth-child(5), .tbl-jurnal td:nth-child(5) { width: 8.3%; text-align: left; color: var(--mut); }
 .tbl-jurnal th:nth-child(6), .tbl-jurnal td:nth-child(6) { width: 13.5%; text-align: left; font-weight: 600; }
 .tbl-jurnal th:nth-child(7), .tbl-jurnal td:nth-child(7) { width: 5.8%; text-align: center; white-space: nowrap; }
@@ -367,24 +641,18 @@ tr.t td { font-weight: 700; border-top: 2px solid var(--ink); }
 .tbl-jurnal th:nth-child(11), .tbl-jurnal td:nth-child(11) { width: 9%; text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; font-weight: 600; }
 .tbl-jurnal th:nth-child(12), .tbl-jurnal td:nth-child(12) { width: 5%; text-align: center; }
 .tbl-jurnal code {
-  font-size: clamp(10px, 0.92vw, 11.5px);
+  font-size: clamp(10px, 0.88vw, 11.5px);
   background: var(--sf2);
   padding: 1px 4px;
   border-radius: 4px;
 }
-.tbl-jurnal .badge {
-  padding: 2px 5px;
-  font-size: 10px;
-}
-.tbl-jurnal .x {
-  padding: 2px 5px;
-  font-size: 11px;
-}
+.tbl-jurnal .badge { padding: 2px 5px; font-size: 10px; }
+.tbl-jurnal .x { padding: 2px 5px; font-size: 11px; }
 
 /* Executive Dashboard Styles */
 .db h1 {
   color: #d0021b;
-  font-size: clamp(20px, 3.5vw, 30px);
+  font-size: clamp(18px, 2.8vw, 26px);
   margin: 0;
   letter-spacing: .01em;
   font-weight: 800;
@@ -455,7 +723,7 @@ tr.t td { font-weight: 700; border-top: 2px solid var(--ink); }
 }
 .db .dh span { padding: 10px 14px; }
 .db i.ob, .db .dh i, .db .hb i {
-  width: 40px;
+  width: 36px;
   background: #f26b3a;
   display: block;
   flex-shrink: 0;
@@ -466,7 +734,7 @@ tr.t td { font-weight: 700; border-top: 2px solid var(--ink); }
   align-items: stretch;
   color: #fff;
   font-weight: 700;
-  font-size: 16px;
+  font-size: 15.5px;
 }
 .db .hb span { padding: 9px 14px; }
 .db .dn {
@@ -478,7 +746,7 @@ tr.t td { font-weight: 700; border-top: 2px solid var(--ink); }
 }
 .db .dv {
   text-align: center;
-  font-size: clamp(23px, 2.8vw, 33px);
+  font-size: clamp(22px, 2.4vw, 30px);
   font-weight: 800;
   padding: 8px 10px;
   font-variant-numeric: tabular-nums;
@@ -498,12 +766,12 @@ tr.t td { font-weight: 700; border-top: 2px solid var(--ink); }
   padding: 3px 10px;
   border-radius: 5px;
   font-style: normal;
-  min-width: 68px;
+  min-width: 64px;
   text-align: center;
 }
 .db .k4 {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(235px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: 12px;
   margin-bottom: 14px;
 }
@@ -522,10 +790,10 @@ tr.t td { font-weight: 700; border-top: 2px solid var(--ink); }
 }
 .db .gr {
   display: grid;
-  grid-template-columns: minmax(0, 1.9fr) minmax(0, 1.1fr);
+  grid-template-columns: minmax(0, 1.85fr) minmax(0, 1.15fr);
   gap: 14px;
 }
-@media(max-width: 840px) {
+@media(max-width: 1060px) {
   .db .gr { grid-template-columns: minmax(0, 1fr); }
 }
 .db .lg {
@@ -557,7 +825,7 @@ tr.t td { font-weight: 700; border-top: 2px solid var(--ink); }
 .db .lg2 b { display: block; font-size: 17px; font-variant-numeric: tabular-nums; }
 .db svg text { font-size: 10px; }
 
-/* Financial Reports (Laba Rugi, Neraca, Arus Kas) */
+/* Financial Reports */
 .rl { max-width: 820px; margin: 0 auto 16px; }
 .rl h2 { text-align: center; font-size: 18px; margin: 0; justify-content: center; }
 .rl .per { text-align: center; color: var(--mut); font-size: 13px; margin-bottom: 14px; }
@@ -571,14 +839,8 @@ tr.t td { font-weight: 700; border-top: 2px solid var(--ink); }
 .rl .sb .nm { font-weight: 600; }
 
 /* Highlight Kolom Profit Harian */
-.col-profit {
-  background: rgba(15, 118, 110, 0.08);
-  font-weight: 800;
-}
-th.col-profit {
-  background: rgba(15, 118, 110, 0.16);
-  color: var(--ac);
-}
+.col-profit { background: rgba(15, 118, 110, 0.08); font-weight: 800; }
+th.col-profit { background: rgba(15, 118, 110, 0.16); color: var(--ac); }
 
 .jl {
   display: grid;
@@ -607,12 +869,8 @@ svg text { fill: var(--mut); font-size: 11px; }
 }
 
 /* Compact & Sticky Table Styles untuk Kartu Persediaan */
-.tbl-compact {
-  font-size: 12.5px;
-}
-.tbl-compact th, .tbl-compact td {
-  padding: 6px 7px;
-}
+.tbl-compact { font-size: 12.5px; }
+.tbl-compact th, .tbl-compact td { padding: 6px 7px; }
 .sticky-col-right {
   position: sticky;
   right: 0;
@@ -620,13 +878,8 @@ svg text { fill: var(--mut); font-size: 11px; }
   z-index: 3;
   box-shadow: -2px 0 5px rgba(0,0,0,0.04);
 }
-th.sticky-col-right {
-  background: var(--sf2);
-  z-index: 4;
-}
-tr:hover .sticky-col-right {
-  background: var(--sf2);
-}
+th.sticky-col-right { background: var(--sf2); z-index: 4; }
+tr:hover .sticky-col-right { background: var(--sf2); }
 .cell-sku-nama {
   max-width: 200px;
   min-width: 150px;
@@ -634,59 +887,79 @@ tr:hover .sticky-col-right {
   word-break: break-word;
   line-height: 1.3;
 }
-.cell-sku-nama b {
-  display: inline-block;
-  font-size: 12px;
-  color: var(--ink);
-}
-.cell-sku-nama small {
-  display: block;
-  font-size: 11px;
+.cell-sku-nama b { display: inline-block; font-size: 12px; color: var(--ink); }
+.cell-sku-nama small { display: block; font-size: 11px; color: var(--mut); margin-top: 2px; }
+
+.app-footer {
+  text-align: center;
   color: var(--mut);
-  margin-top: 2px;
+  font-size: 12px;
+  padding: 8px 20px 24px;
 }
 
 @media print {
-  header, .bar, .no-print, #gd-wrap { display: none !important; }
+  .sidebar, .topbar, .sidebar-overlay, .subtabs, .bar, .no-print, #gd-wrap { display: none !important; }
+  .main-wrap { margin-left: 0 !important; }
   body { background: #fff; color: #000; }
   main { max-width: 100%; padding: 0; }
   .panel { border: 0; box-shadow: none; padding: 0; }
 }
-tbody tr:hover td { background: color-mix(in srgb, var(--ac) 6%, transparent); }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
-@media print { header nav, .no-print { display: none !important; } }
 </style>
 </head>
 <body>
-<header>
-  <div class="header-top">
-    <div class="brand">
-      <div class="brand-badge">E</div>
-      <div>
-        <h1>Keuangan Toko Online</h1>
-        <div class="sub-brand">Sistem Akuntansi, Pajak &amp; Inventori Multi-Toko (Elzamora)</div>
+<div class="app-shell" id="shell">
+  <div class="sidebar-overlay no-print" id="sidebar-overlay"></div>
+
+  <aside class="sidebar no-print" id="sidebar" aria-label="Navigasi Utama">
+    <div class="sidebar-head">
+      <div class="brand">
+        <div class="brand-badge">E</div>
+        <div class="brand-text">
+          <div class="brand-name">Elzamora</div>
+          <div class="sub-brand">Keuangan Toko Online</div>
+        </div>
       </div>
+      <button type="button" class="icon-btn" id="btn-collapse-sidebar" title="Ciutkan / Lebarkan Sidebar" aria-label="Ciutkan Sidebar">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="3" x2="9" y2="21"/></svg>
+      </button>
     </div>
-    <div id="sync" class="no-print" style="font-size:12px;color:var(--mut)" role="status"></div>
+
+    <nav role="tablist" aria-orientation="vertical" class="sidebar-nav" id="nav"></nav>
+
+    <div class="sidebar-foot">
+      <button type="button" class="pill-btn demo" id="btn-demo" title="Isi dengan contoh transaksi Q4 2026 agar grafik & laporan langsung terlihat">
+        <span>✨</span><span class="btn-lbl">Muat Data Contoh 4Q26</span>
+      </button>
+      <button type="button" class="pill-btn" id="btn-backup" title="Cadangkan atau pulihkan database">
+        <span>💾</span><span class="btn-lbl">Cadangan Data</span>
+      </button>
+      <button type="button" class="pill-btn" id="btn-theme" title="Ganti tema Terang / Gelap">
+        <span>🌓</span><span class="btn-lbl">Tema Terang / Gelap</span>
+      </button>
+    </div>
+  </aside>
+
+  <div class="main-wrap">
+    <header class="topbar no-print">
+      <div class="topbar-left">
+        <button type="button" class="icon-btn btn-mobile-menu" id="btn-menu-mobile" aria-label="Buka Menu Navigasi" title="Menu">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+        </button>
+        <h1 class="topbar-title" id="page-title">Dashboard</h1>
+      </div>
+      <div class="topbar-right">
+        <div id="sync" style="font-size:12px;color:var(--mut)" role="status"></div>
+      </div>
+    </header>
+
+    <main id="app"></main>
+    <p class="app-footer no-print">Data tersimpan di browser perangkat ini &amp; Firebase. Unduh Cadangan Data secara berkala.</p>
   </div>
-  <nav role="tablist" id="nav"></nav>
-</header>
-
-<main id="app"></main>
-<p class="no-print" style="text-align:center;color:var(--mut);font-size:12px;margin:16px 20px 0">Data tersimpan di browser perangkat ini &amp; Firebase. Unduh Cadangan Data secara berkala.</p>
-
-<footer style="max-width:100%;margin:20px auto 40px;padding:0 20px;display:flex;justify-content:center;align-items:center;gap:12px;flex-wrap:wrap;" class="no-print">
-  <button type="button" class="pill-btn demo" id="btn-demo" title="Isi dengan contoh transaksi Q4 2026 agar grafik & laporan langsung terlihat">✨ Muat Data Contoh 4Q26</button>
-  <button type="button" class="pill-btn" id="btn-backup" title="Cadangkan atau pulihkan database">💾 Cadangan Data</button>
-  <button type="button" class="pill-btn" id="btn-theme" title="Ganti tema Terang / Gelap">🌓 Tema</button>
-</footer>
+</div>
 
 <!-- SCRIPT FIREBASE & APLIKASI KEUANGAN -->
-<script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/13.2.0/firebase-app.js";
-  import { getAnalytics } from "https://www.gstatic.com/firebasejs/13.2.0/firebase-analytics.js";
-  import { getFirestore, collection, getDocs, doc, setDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/13.2.0/firebase-firestore.js";
-
+<script>
   const firebaseConfig = {
     apiKey: "AIzaSyD_BlrzmpWNx2jYlJ9Pk_RVxy74J3dfJzY",
     authDomain: "keuanganku-6fa95.firebaseapp.com",
@@ -698,22 +971,29 @@ tbody tr:hover td { background: color-mix(in srgb, var(--ac) 6%, transparent); }
     measurementId: "G-H091SE5KY5"
   };
 
-  let app, analytics, dbFirestore;
-  try {
-    app = initializeApp(firebaseConfig);
-    dbFirestore = getFirestore(app);
-    try { analytics = getAnalytics(app); } catch (e) {}
-    console.log("Firebase berhasil diinisialisasi pada aplikasi web Keuangan Elzamora!");
-  } catch (err) {
-    console.warn("Firebase inisialisasi offline fallback:", err);
+  async function initFirebase() {
+    try {
+      const [appMod, fsMod] = await Promise.all([
+        import("https://www.gstatic.com/firebasejs/13.2.0/firebase-app.js"),
+        import("https://www.gstatic.com/firebasejs/13.2.0/firebase-firestore.js")
+      ]);
+      const app = appMod.initializeApp(firebaseConfig);
+      window.dbFirestore = fsMod.getFirestore(app);
+      window.getDocsCollection = fsMod.getDocs;
+      window.firebaseCollection = fsMod.collection;
+      window.firebaseDoc = fsMod.doc;
+      window.firebaseSetDoc = fsMod.setDoc;
+      window.firebaseDeleteDoc = fsMod.deleteDoc;
+      try {
+        const anMod = await import("https://www.gstatic.com/firebasejs/13.2.0/firebase-analytics.js");
+        anMod.getAnalytics(app);
+      } catch (e) {}
+      return true;
+    } catch (err) {
+      console.warn("Firebase inisialisasi offline fallback:", err);
+      return false;
+    }
   }
-
-  window.dbFirestore = dbFirestore;
-  window.getDocsCollection = getDocs;
-  window.firebaseCollection = collection;
-  window.firebaseDoc = doc;
-  window.firebaseSetDoc = setDoc;
-  window.firebaseDeleteDoc = deleteDoc;
 
 const hariIni = () => { const d = new Date(); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); };
 const dt = x => new Date(String(x).slice(0, 10) + "T00:00:00");
@@ -927,7 +1207,6 @@ const kodePiutangToko = (tk, tgl) => {
 };
 const labelToko = tk => (TOKO_INFO[tk || "java"] ? TOKO_INFO[tk || "java"].label : tk);
 
-// Deteksi & normalisasi kode piutang toko (mis. PU-JV202611 -> PU-JV-202611, PU-KONG202611 -> PU-KONG-202611)
 function parseKodePiutangToko(rawNo, tglFallback) {
   const s = String(rawNo || "").trim().toUpperCase();
   if (!s) return null;
@@ -962,11 +1241,9 @@ function parseKodePiutangToko(rawNo, tglFallback) {
 }
 const isPiutangToko = no => !!parseKodePiutangToko(no);
 
-// Bersihkan duplikasi data piutang toko / jurnal manual dari versi sebelumnya
 function sanitasiData() {
   let berubah = false;
 
-  // 0. Bersihkan data contoh (demo) jika sempat tersimpan otomatis sebelumnya
   const jrLen0 = JR.length;
   JR = JR.filter(j => !DEMO_JR_IDS.has(j.id));
   if (JR.length !== jrLen0) berubah = true;
@@ -1003,7 +1280,6 @@ function sanitasiData() {
     berubah = true;
   }
 
-  // 1. Normalisasi kode piutang toko pada Jurnal Umum Manual (JR)
   JR.forEach(j => {
     if (!j.ref && j.ket) {
       const mKet = /\b(PU[-_]?(?:JV|JAVA|KONG|KF|LAZ|TT)[-_]?\d{6})\b/i.exec(j.ket);
@@ -1025,7 +1301,6 @@ function sanitasiData() {
     }
   });
 
-  // 2. Normalisasi kode pada CA dan hapus duplikat CA yang sebelumnya ikut terbuat dari Jurnal Manual
   CA.forEach(c => {
     if (c.kode) {
       const p = parseKodePiutangToko(c.kode, c.tgl);
@@ -1050,7 +1325,6 @@ function sanitasiData() {
   });
   if (CA.length !== caAwalLen) berubah = true;
 
-  // 3. Bersihkan item piutang toko (PU-JV / PU-KONG) dari HP agar tidak muncul ganda di Daftar Hutang & Piutang maupun Jurnal Otomatis
   const hpBaru = [];
   HP.forEach(h => {
     if (h.akun) h.akun = String(h.akun).split(" — ")[0];
@@ -1075,10 +1349,9 @@ function sanitasiData() {
         });
       }
       berubah = true;
-      return; // Jangan masukkan ke HP karena sudah dikelola di Piutang Toko (PS) & JR
+      return;
     }
 
-    // Jika HP non-toko berasal dari Jurnal Manual lama yang terlanjur punya `lawan`, tandai fromJr agar tidak jadi jurnal ganda
     const jrMatch = JR.find(j =>
       j.ref &&
       j.ref.tipe === h.tipe &&
@@ -1203,11 +1476,11 @@ async function sambungOnline() {
     const diperbaiki = sanitasiData();
     rebuildAK();
     const bd = document.getElementById("btn-demo"); if (bd) bd.style.display = "none";
-    setStatus("Tersambung · " + (ada ? "" : ""));
+    setStatus("Tersambung");
     if (!ada || diperbaiki) simpanLokal();
     return true;
   } catch (e) {
-    setStatus("Mode offline (hanya browser ini): " + (e.message || e.code || e), true);
+    setStatus("Mode offline (hanya browser ini)", true);
     return false;
   }
 }
@@ -1512,7 +1785,7 @@ function JA() {
 
   HP.forEach(h =>
     (h.log || []).forEach((x, i) => {
-      if (x.fromJr) return; // Pembayaran dari Jurnal Umum Manual sudah tercatat di JR
+      if (x.fromJr) return;
       E.push({
         id: "~h" + h.id + i,
         auto: 1,
@@ -1618,7 +1891,6 @@ function hitungAlokasiCair() {
     x.net += p.hrg * p.jml - (p.vc || 0) - (p.adm || 0);
   });
 
-  // Gabungkan juga piutang toko yang diinput lewat Jurnal Umum Manual (mis. PU-JV-202611 / PU-KONG-202611)
   JR.forEach(j => {
     if (!j.ref || j.ref.tipe !== "piutang") return;
     const infoTk = parseKodePiutangToko(j.ref.no, j.tgl);
@@ -1678,7 +1950,6 @@ function PS() {
       x.net += e.net;
     });
 
-  // Ikut sertakan piutang toko yang diinput lewat Jurnal Umum Manual (seperti PU-JV-202611 / PU-KONG-202611)
   JR.forEach(j => {
     if (!j.ref || j.ref.tipe !== "piutang") return;
     const infoTk = parseKodePiutangToko(j.ref.no, j.tgl);
@@ -1775,25 +2046,56 @@ function jumlah(r, g, ms) {
   return s;
 }
 
-const tabs = [
-  ["dash", "Dashboard"],
-  ["lap", "Laporan"],
-  ["jurnal", "Jurnal Umum"],
-  ["jual", "Data Penjualan"],
-  ["hp", "Hutang & Piutang"],
-  ["inv", "Persediaan Barang"],
-  ["beli", "Pembelian Barang"],
-  ["setup", "Setup"]
+/* ===== MENU SIDEBAR BERKELOMPOK ALA MEKARI JURNAL ===== */
+const NAV_GROUPS = [
+  [
+    { id: "dash", label: "Dashboard", icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5L12 3l9 7.5"/><path d="M5 9.5V20a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V9.5"/><path d="M9 21v-6h6v6"/></svg>` },
+    { id: "lap", label: "Laporan", icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></svg>` }
+  ],
+  [
+    { id: "jurnal", label: "Jurnal Umum", icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1z"/><path d="M8 7h8"/><path d="M8 11h8"/><path d="M8 15h5"/></svg>` },
+    { id: "jual", label: "Data Penjualan", icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>` },
+    { id: "beli", label: "Pembelian Barang", icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>` },
+    { id: "hp", label: "Hutang & Piutang", icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18"/><path d="M3 10h18"/><path d="M5 6l7-3 7 3"/><path d="M4 10v11"/><path d="M20 10v11"/><path d="M8 14v3"/><path d="M12 14v3"/><path d="M16 14v3"/></svg>` }
+  ],
+  [
+    { id: "inv", label: "Persediaan Barang", icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>` },
+    { id: "setup", label: "Setup & Daftar Akun", icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M9 12h6"/><path d="M9 16h6"/></svg>` }
+  ]
 ];
 
+const TAB_TITLES = {
+  dash: "Dashboard",
+  lap: "Laporan",
+  jurnal: "Jurnal Umum",
+  jual: "Data Penjualan",
+  beli: "Pembelian Barang",
+  hp: "Hutang & Piutang",
+  inv: "Persediaan Barang",
+  setup: "Setup & Daftar Akun",
+  data: "Cadangan Data & Database"
+};
+
+function tutupDrawer() {
+  const sh = document.getElementById("shell");
+  if (sh) sh.classList.remove("is-open");
+}
+
 function nav() {
-  document.getElementById("nav").innerHTML = tabs
-    .map(t => `<button role="tab" aria-selected="${S.tab == t[0]}" data-t="${t[0]}">${t[1]}</button>`)
-    .join("");
-  document.querySelectorAll("nav button").forEach(b => (b.onclick = () => {
+  const navEl = document.getElementById("nav");
+  if (!navEl) return;
+  navEl.innerHTML = NAV_GROUPS.map(grp =>
+    grp.map(t => `<button type="button" class="nav-item" role="tab" aria-selected="${S.tab == t.id}" data-t="${t.id}" title="${esc(t.label)}">${t.icon}<span>${esc(t.label)}</span></button>`).join("")
+  ).join('<div class="nav-sep" role="separator"></div>');
+
+  navEl.querySelectorAll("button[data-t]").forEach(b => (b.onclick = () => {
     S.tab = b.dataset.t;
+    tutupDrawer();
     draw();
   }));
+
+  const titleEl = document.getElementById("page-title");
+  if (titleEl) titleEl.textContent = TAB_TITLES[S.tab] || "Dashboard";
 }
 
 function daftarTahun() {
@@ -2034,9 +2336,9 @@ function lap() {
     ["cek", "Cek Data (Rekonsiliasi)"]
   ];
   return (
-    `<div class="bar no-print">` +
-    L.map(x => `<button class="btn${S.lap == x[0] ? "" : " alt"}" data-l="${x[0]}">${x[1]}</button>`).join("") +
-    `<button class="btn alt" id="btn-print" style="margin-left:auto">🖨️ Cetak / PDF</button>` +
+    `<div class="subtabs no-print" role="tablist">` +
+    L.map(x => `<button type="button" class="subtab-btn${S.lap == x[0] ? " active" : ""}" data-l="${x[0]}" role="tab" aria-selected="${S.lap == x[0]}">${x[1]}</button>`).join("") +
+    `<div class="subtabs-right"><button type="button" class="btn alt sm" id="btn-print">🖨️ Cetak / PDF</button></div>` +
     `</div>` +
     (S.lap == "ph"
       ? profitHarian()
@@ -2133,13 +2435,7 @@ function profitHarian() {
       const bersih = r.kotor - r.voucher;
       const profit = bersih - r.admin - r.hpp;
       const margin = bersih > 0 ? (profit / bersih) * 100 : 0;
-      return {
-        ...r,
-        jmlOrder: r.orders.size,
-        bersih,
-        profit,
-        margin
-      };
+      return { ...r, jmlOrder: r.orders.size, bersih, profit, margin };
     })
     .sort((a, b) => b.tgl.localeCompare(a.tgl));
 
@@ -2272,7 +2568,7 @@ function lr() {
   const per = S.bln == "ytd" ? "Januari – Desember " + S.thn : BL[+S.bln] + " " + S.thn;
 
   return (
-    periode(`<button class="btn alt" id="exp-lr">📥 Ekspor Excel</button>`) +
+    periode(`<button class="btn alt" id="exp-lr" type="button">📥 Ekspor Excel</button>`) +
     `<div class="panel rl scroll">
       <h2>LAPORAN LABA RUGI</h2>
       <div class="per">KEUANGAN USAHA ELZAMORA · Periode ${per}</div>
@@ -2604,7 +2900,7 @@ function jr() {
           <td>${l.d ? rp(l.d) : ""}</td>
           <td>${l.k ? rp(l.k) : ""}</td>
           <td>${rp(bal)}</td>
-          <td>${i ? "" : j.auto ? '<span class="badge ok">Otomatis</span>' : `<button class="x" data-id="${esc(j.id)}">Hapus</button>`}</td>
+          <td>${i ? "" : j.auto ? '<span class="badge ok">Otomatis</span>' : `<button type="button" class="x" data-id="${esc(j.id)}">Hapus</button>`}</td>
         </tr>`;
       })
       .join("");
@@ -2636,7 +2932,7 @@ function jr() {
       <button class="btn alt" type="button" id="j-tb">+ Tambah baris akun</button>
       <span id="j-tot" aria-live="polite" style="font-weight:700"></span>
     </div>
-    <button class="btn" id="j-simpan">Simpan Jurnal</button>
+    <button class="btn" type="button" id="j-simpan">Simpan Jurnal</button>
     <div id="j-err" class="neg" role="alert" style="margin-top:6px"></div>
   </div>
   <div class="panel panel-jurnal-full">
@@ -2738,7 +3034,6 @@ function bindJ() {
       tipeRef = parts[0];
       noRef = parts[1];
     } else {
-      // Deteksi otomatis jika deskripsi mencantumkan kode piutang toko seperti PU-JV202611 / PU-JV-202611
       const mKet = /\b(PU[-_]?(?:JV|JAVA|KONG|KF|LAZ|TT)[-_]?\d{6})\b/i.exec(doc.ket);
       if (mKet && lines.some(l => l.akun === "1-10100" && (l.d > 0 || l.k > 0))) {
         tipeRef = "piutang";
@@ -3024,7 +3319,7 @@ function jual() {
           </select>
         </label>
         <label>File Excel (.xlsx / .xls)<input type="file" id="u-file" accept=".xlsx,.xls" multiple></label>
-        <button class="btn" id="u-go">Proses File</button>
+        <button class="btn" type="button" id="u-go">Proses File</button>
       </div>
       <div id="u-out" role="status" style="margin-top:10px">${LP}</div>
     </div>
@@ -3048,7 +3343,7 @@ function jual() {
           <label>Voucher Toko (Rp)<input type="number" id="m-vc" min="0" value="0"></label>
           <label>Biaya Admin (Rp)<input type="number" id="m-adm" min="0" value="0"></label>
         </div>
-        <button class="btn" id="m-add">Simpan</button>
+        <button class="btn" type="button" id="m-add">Simpan</button>
       </div>
       <div id="m-err" class="neg" style="margin-top:6px"></div>
     </div>
@@ -3082,7 +3377,7 @@ function jual() {
                 <td>${p.vc ? rp(p.vc) : "–"}</td>
                 <td>${p.adm ? rp(p.adm) : "–"}</td>
                 <td>${rp(hpp)}</td>
-                <td><button class="x" data-k="${esc(tkKey + "|" + p.tgl + "|" + p.no + "|" + p.sku)}">Hapus</button></td>
+                <td><button type="button" class="x" data-k="${esc(tkKey + "|" + p.tgl + "|" + p.no + "|" + p.sku)}">Hapus</button></td>
               </tr>`;
             }).join("")}</tbody>
           </table>`
@@ -3346,7 +3641,7 @@ function sp() {
                     <td><code>${esc(kd)}</code></td>
                     <td><b>${rp(c.nom)}</b></td>
                     <td>${esc(nama(c.akun))}</td>
-                    <td><button class="x" data-cd="${esc(c.id)}">Hapus</button></td>
+                    <td><button type="button" class="x" data-cd="${esc(c.id)}">Hapus</button></td>
                   </tr>`;
                 })
                 .join("");
@@ -3383,7 +3678,7 @@ function hp() {
           <label>Akun Hutang/Piutang<select id="h-akun">${opsi().replace('value="2-20100"', 'value="2-20100" selected')}</select></label>
           <label>Akun Lawan (Pasangan Jurnal)<select id="h-lawan">${opsi().replace('value="' + KAS[0][0] + '"', 'value="' + KAS[0][0] + '" selected')}</select></label>
           <label>Keterangan<input id="h-ket"></label>
-          <button class="btn" id="h-add">Simpan</button>
+          <button class="btn" type="button" id="h-add">Simpan</button>
         </div>
         <small style="color:var(--mut);display:block;margin-top:6px">💡 Jika nomor hutang/piutang yang Anda ketik sudah ada, nominalnya akan <b>otomatis digabung menjadi 1</b> akumulasi saldo.</small>
         <div id="h-err" class="neg" role="alert" style="margin-top:4px"></div>
@@ -3400,7 +3695,7 @@ function hp() {
           <label>Tanggal Bayar<input type="date" id="y-tgl" value="${hari}"></label>
           <label>Nominal Bayar (Rp)<input type="number" id="y-nom" min="0"></label>
           <label>Melalui Kas/Bank<select id="y-akun">${kasOp()}</select></label>
-          <button class="btn" id="y-add">Catat Pembayaran</button>
+          <button class="btn" type="button" id="y-add">Catat Pembayaran</button>
         </div>
         <div id="y-err" class="neg" role="alert"></div>
       </div>
@@ -3422,7 +3717,7 @@ function hp() {
                   <td>${rp(h.bayar || 0)}</td>
                   <td><b>${rp(h.nom - (h.bayar || 0))}</b></td>
                   <td style="text-align:left">${esc(h.ket || "")}</td>
-                  <td><button class="x" data-hd="${esc(h.id)}">Hapus</button></td>
+                  <td><button type="button" class="x" data-hd="${esc(h.id)}">Hapus</button></td>
                 </tr>`
               ).join("")}</tbody>
             </table>`
@@ -3435,17 +3730,11 @@ function hp() {
 function bindH() {
   const flSp = document.getElementById("sp-filter-toko");
   if (flSp) {
-    flSp.onchange = e => {
-      S.spToko = e.target.value;
-      draw();
-    };
+    flSp.onchange = e => { S.spToko = e.target.value; draw(); };
   }
   const flSt = document.getElementById("sp-filter-status");
   if (flSt) {
-    flSt.onchange = e => {
-      S.spStatus = e.target.value;
-      draw();
-    };
+    flSt.onchange = e => { S.spStatus = e.target.value; draw(); };
   }
   document.querySelectorAll("[data-cairkan]").forEach(btn => {
     btn.onclick = () => {
@@ -4146,7 +4435,7 @@ function beli() {
                 <option value="2-20100">Hutang Usaha (Tempo / Belum Dibayar)</option>
               </select>
             </label>
-            <button class="btn" id="b-add">Simpan Pembelian</button>
+            <button class="btn" type="button" id="b-add">Simpan Pembelian</button>
           </div>
           <div id="b-err" class="neg" role="alert"></div>`
         : '<div class="empty">Tambahkan produk di Persediaan Barang dulu.</div>'
@@ -4167,7 +4456,7 @@ function beli() {
                 <td>${rp(b.hrg)}</td>
                 <td><b>${rp(b.jml * b.hrg)}</b></td>
                 <td>${esc(nama(b.bayar || "1-10003"))}</td>
-                <td><button class="x" data-bd="${esc(b.id)}">Hapus</button></td>
+                <td><button type="button" class="x" data-bd="${esc(b.id)}">Hapus</button></td>
               </tr>`
             ).join("")}</tbody>
           </table>`
@@ -4223,7 +4512,6 @@ function bindB() {
   }));
 }
 
-// FUNGSI PENYIMPANAN DAN PENGUNDUHAN FILE UNIVERSAL UNTUK BROWSER
 function unduhBlob(nama, blob) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
@@ -4323,7 +4611,7 @@ function dat() {
       <h2>Ekspor &amp; Impor Cadangan (JSON)</h2>
       <p style="color:var(--mut)">Seluruh data tersimpan otomatis di browser perangkat ini. Anda dapat mengunduh file cadangan (<code>.json</code>) untuk disimpan atau dibuka di perangkat lain.</p>
       <div class="bar">
-        <button class="btn" id="ex">⬇️ Unduh Cadangan (.json)</button>
+        <button type="button" class="btn" id="ex">⬇️ Unduh Cadangan (.json)</button>
         <label class="btn alt" style="cursor:pointer;margin:0">
           ⬆️ Pulihkan dari File (.json)
           <input type="file" id="im-json" accept=".json" style="display:none">
@@ -4336,8 +4624,8 @@ function dat() {
       <h2>Data Contoh &amp; Reset Database</h2>
       <p style="color:var(--mut)">Ingin mencoba simulasi laporan keuangan 4Q26 atau mengosongkan transaksi untuk mulai pembukuan baru?</p>
       <div class="bar">
-        <button class="btn alt" id="btn-load-demo">✨ Muat Data Contoh 4Q26</button>
-        <button class="btn alt neg" id="btn-reset">🗑️ Kosongkan Semua Transaksi</button>
+        <button type="button" class="btn alt" id="btn-load-demo">✨ Muat Data Contoh 4Q26</button>
+        <button type="button" class="btn alt neg" id="btn-reset">🗑️ Kosongkan Semua Transaksi</button>
       </div>
     </div>
   </div>`;
@@ -4393,9 +4681,7 @@ function bindD() {
         ]);
         const hapusPromises = [];
         kSnap.forEach(d => {
-          if (d.id !== "setup") {
-            hapusPromises.push(window.firebaseDeleteDoc(d.ref));
-          }
+          if (d.id !== "setup") hapusPromises.push(window.firebaseDeleteDoc(d.ref));
         });
         pjSnap.forEach(d => {
           hapusPromises.push(window.firebaseDeleteDoc(d.ref));
@@ -4432,7 +4718,7 @@ function st() {
     ["sku", "Katalog SKU Barang"]
   ];
   const ko = c => KATS.map(k => `<option value="${esc(k.kat)}" ${k.kat == c ? "selected" : ""}>${esc(k.kat)}</option>`).join("");
-  let b = `<div class="bar">${tb.map(t => `<button type="button" class="btn${T == t[0] ? "" : " alt"}" data-st="${t[0]}">${t[1]}</button>`).join("")}</div>`;
+  let b = `<div class="subtabs no-print" role="tablist">${tb.map(t => `<button type="button" class="subtab-btn${T == t[0] ? " active" : ""}" data-st="${t[0]}" role="tab" aria-selected="${T == t[0]}">${t[1]}</button>`).join("")}</div>`;
 
   if (T == "akun") {
     const aq = (S.akunQ || "").toLowerCase();
@@ -4719,7 +5005,7 @@ function draw() {
     a.innerHTML =
       banner() +
       (T[S.tab] || dash)() +
-      (S.tab == "data" ? "" : '<p id="gd-wrap"><button class="x" id="gd" type="button" style="color:var(--ac)">⚙️ Kelola Cadangan Data &amp; Reset Database</button></p>');
+      (S.tab == "data" ? "" : '<p id="gd-wrap" style="margin-top:8px"><button class="x" id="gd" type="button" style="color:var(--ac)">⚙️ Kelola Cadangan Data &amp; Reset Database</button></p>');
 
     const btnTutup = document.getElementById("btn-tutup-banner");
     if (btnTutup) {
@@ -4742,20 +5028,42 @@ function mulai() {
   try { savedTheme = localStorage.getItem("ktoko_theme"); } catch (e) {}
   if (savedTheme) document.documentElement.setAttribute("data-theme", savedTheme);
 
+  const shell = document.getElementById("shell");
+  let savedMini = false;
+  try { savedMini = localStorage.getItem("ktoko_sidebar_mini") === "1"; } catch (e) {}
+  if (savedMini && shell) shell.classList.add("is-mini");
+
+  const btnCollapse = document.getElementById("btn-collapse-sidebar");
+  if (btnCollapse && shell) {
+    btnCollapse.onclick = () => {
+      shell.classList.toggle("is-mini");
+      try { localStorage.setItem("ktoko_sidebar_mini", shell.classList.contains("is-mini") ? "1" : "0"); } catch (e) {}
+    };
+  }
+
+  const btnMobile = document.getElementById("btn-menu-mobile");
+  if (btnMobile && shell) {
+    btnMobile.onclick = () => shell.classList.toggle("is-open");
+  }
+  const overlay = document.getElementById("sidebar-overlay");
+  if (overlay) {
+    overlay.onclick = tutupDrawer;
+  }
+
   document.getElementById("btn-theme").onclick = () => {
     const cur = document.documentElement.getAttribute("data-theme");
     const next = cur === "dark" ? "light" : "dark";
     document.documentElement.setAttribute("data-theme", next);
     try { localStorage.setItem("ktoko_theme", next); } catch (e) {}
   };
-  document.getElementById("btn-demo").onclick = mintaDemo;
-  document.getElementById("btn-backup").onclick = () => { S.tab = "data"; draw(); };
+  document.getElementById("btn-demo").onclick = () => { tutupDrawer(); mintaDemo(); };
+  document.getElementById("btn-backup").onclick = () => { S.tab = "data"; tutupDrawer(); draw(); };
 
   muatLokal();
   rebuildAK();
   setStatus("Menghubungkan ke Firebase Firestore…");
   draw();
-  sambungOnline().then(ok => {
+  initFirebase().then(ready => ready ? sambungOnline() : false).then(ok => {
     if (!ok) {
       setStatus("Mode offline · data lokal", true);
     }
