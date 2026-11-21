@@ -981,6 +981,131 @@ tr:hover .sticky-col-right { background: var(--sf2); }
   padding: 8px 20px 24px;
 }
 
+
+/* ===== HALAMAN LOGIN PEMILIK (FIREBASE AUTH) ===== */
+.auth-gate {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 16px;
+  background: radial-gradient(circle at 18% 12%, #dbeeff 0%, var(--bg) 52%, #e6f2ff 100%);
+}
+:root[data-theme="dark"] .auth-gate {
+  background: radial-gradient(circle at 18% 12%, #14263f 0%, var(--bg) 58%, #0a1220 100%);
+}
+.auth-card {
+  width: 100%;
+  max-width: 400px;
+  background: var(--sf);
+  border: 1px solid var(--ln);
+  border-radius: 16px;
+  padding: 30px 28px 26px;
+  box-shadow: 0 12px 32px rgba(20, 75, 150, 0.10), 0 2px 6px rgba(20, 75, 150, 0.05);
+}
+.auth-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+.auth-head .brand-badge {
+  width: 42px;
+  height: 42px;
+  font-size: 19px;
+  border-radius: 11px;
+}
+.auth-title {
+  margin: 0;
+  font-size: 19px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+.auth-sub {
+  margin: 2px 0 0;
+  font-size: 12.5px;
+  color: var(--mut);
+}
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 13px;
+}
+.auth-pw-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+.auth-pw-wrap input {
+  width: 100%;
+  padding-right: 40px;
+}
+.auth-eye {
+  position: absolute;
+  right: 6px;
+  background: transparent;
+  border: 0;
+  color: var(--mut);
+  width: 30px;
+  height: 30px;
+  border-radius: 6px;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+.auth-eye:hover {
+  background: var(--sf2);
+  color: var(--ink);
+}
+.auth-err {
+  font-size: 12.5px;
+  color: var(--neg);
+  min-height: 18px;
+  line-height: 1.4;
+}
+.auth-offline-box {
+  display: none;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--ln);
+  text-align: center;
+}
+.auth-offline-box p {
+  margin: 0 0 10px;
+  font-size: 12px;
+  color: var(--mut);
+  line-height: 1.45;
+}
+.auth-foot {
+  margin-top: 16px;
+  text-align: center;
+  font-size: 11.5px;
+  color: var(--mut);
+}
+.user-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 99px;
+  background: var(--ac-soft);
+  color: var(--ac);
+  font-size: 12px;
+  font-weight: 700;
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pill-btn.logout {
+  color: var(--neg);
+}
+.pill-btn.logout:hover {
+  border-color: var(--neg);
+  color: var(--neg);
+  background: rgba(209, 46, 58, 0.06);
+}
+
 @media print {
   .sidebar, .topbar, .sidebar-overlay, .subtabs, .bar, .no-print, #gd-wrap { display: none !important; }
   .main-wrap { margin-left: 0 !important; }
@@ -992,7 +1117,40 @@ tr:hover .sticky-col-right { background: var(--sf2); }
 </style>
 </head>
 <body>
-<div class="app-shell" id="shell">
+<section class="auth-gate no-print" id="auth-gate" aria-label="Login Pemilik">
+  <div class="auth-card">
+    <div class="auth-head">
+      <div class="brand-badge">E</div>
+      <div>
+        <h1 class="auth-title">Elzamora Keuangan</h1>
+        <p class="auth-sub">Akses khusus pemilik · Masuk dengan akun Firebase</p>
+      </div>
+    </div>
+    <div id="auth-loading" style="text-align:center;padding:18px 0;color:var(--mut);font-size:13px">Memeriksa sesi login tersimpan…</div>
+    <form class="auth-form" id="auth-form" style="display:none" novalidate>
+      <label>Email Pemilik
+        <input type="email" id="auth-email" placeholder="nama@email.com" autocomplete="username" required>
+      </label>
+      <label>Password
+        <div class="auth-pw-wrap">
+          <input type="password" id="auth-pass" placeholder="Masukkan password" autocomplete="current-password" required>
+          <button type="button" class="auth-eye" id="auth-toggle-pw" aria-label="Tampilkan password" title="Tampilkan / Sembunyikan Password">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+          </button>
+        </div>
+      </label>
+      <div class="auth-err" id="auth-err" role="alert"></div>
+      <button type="submit" class="btn" id="auth-submit" style="width:100%">Masuk ke Pembukuan</button>
+    </form>
+    <div class="auth-offline-box" id="auth-offline-box">
+      <p>Koneksi ke server login Firebase sedang tidak terjangkau (mode pratinjau / offline).</p>
+      <button type="button" class="btn alt sm" id="btn-offline-enter" style="width:100%">Buka Mode Pratinjau Offline</button>
+    </div>
+    <div class="auth-foot">Dilindungi Firebase Authentication · 1 Akun Pemilik</div>
+  </div>
+</section>
+
+<div class="app-shell" id="shell" style="display:none">
   <div class="sidebar-overlay no-print" id="sidebar-overlay"></div>
 
   <aside class="sidebar no-print" id="sidebar" aria-label="Navigasi Utama">
@@ -1021,6 +1179,9 @@ tr:hover .sticky-col-right { background: var(--sf2); }
       <button type="button" class="pill-btn" id="btn-theme" title="Ganti tema Terang / Gelap">
         <span>🌓</span><span class="btn-lbl">Tema Terang / Gelap</span>
       </button>
+      <button type="button" class="pill-btn logout" id="btn-logout" title="Keluar dari akun pemilik">
+        <span>🔒</span><span class="btn-lbl">Keluar (Logout)</span>
+      </button>
     </div>
   </aside>
 
@@ -1033,6 +1194,7 @@ tr:hover .sticky-col-right { background: var(--sf2); }
         <h1 class="topbar-title" id="page-title">Dashboard</h1>
       </div>
       <div class="topbar-right">
+        <span id="user-chip" class="user-chip" style="display:none"></span>
         <div id="sync" style="font-size:12px;color:var(--mut)" role="status"></div>
       </div>
     </header>
@@ -1055,11 +1217,15 @@ tr:hover .sticky-col-right { background: var(--sf2); }
     measurementId: "G-H091SE5KY5"
   };
 
+  // Opsional: isi dengan email pemilik Anda (mis. "elzamora@gmail.com") untuk membatasi ketat hanya 1 email ini
+  const ALLOWED_OWNER_EMAIL = "";
+
   async function initFirebase() {
     try {
-      const [appMod, fsMod] = await Promise.all([
+      const [appMod, fsMod, authMod] = await Promise.all([
         import("https://www.gstatic.com/firebasejs/13.2.0/firebase-app.js"),
-        import("https://www.gstatic.com/firebasejs/13.2.0/firebase-firestore.js")
+        import("https://www.gstatic.com/firebasejs/13.2.0/firebase-firestore.js"),
+        import("https://www.gstatic.com/firebasejs/13.2.0/firebase-auth.js")
       ]);
       const app = appMod.initializeApp(firebaseConfig);
       window.dbFirestore = fsMod.getFirestore(app);
@@ -1068,6 +1234,12 @@ tr:hover .sticky-col-right { background: var(--sf2); }
       window.firebaseDoc = fsMod.doc;
       window.firebaseSetDoc = fsMod.setDoc;
       window.firebaseDeleteDoc = fsMod.deleteDoc;
+      window.fbAuth = authMod.getAuth(app);
+      window.fbSignIn = authMod.signInWithEmailAndPassword;
+      window.fbSignOut = authMod.signOut;
+      window.fbOnAuth = authMod.onAuthStateChanged;
+      window.fbSetPersistence = authMod.setPersistence;
+      window.fbLocalPersistence = authMod.browserLocalPersistence;
       try {
         const anMod = await import("https://www.gstatic.com/firebasejs/13.2.0/firebase-analytics.js");
         anMod.getAnalytics(app);
@@ -1560,7 +1732,7 @@ async function sambungOnline() {
     const diperbaiki = sanitasiData();
     rebuildAK();
     const bd = document.getElementById("btn-demo"); if (bd) bd.style.display = "none";
-    setStatus("Tersambung");
+    setStatus("Tersambung · Firebase aktif");
     if (!ada || diperbaiki) simpanLokal();
     return true;
   } catch (e) {
@@ -2354,7 +2526,7 @@ function dash() {
 
   return `<div class="db">
     <div class="top">
-      <h1>Performa bisnis</h1>
+      <h1>KEUANGAN USAHA ELZAMORA</h1>
       <div class="fl">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" aria-hidden="true"><circle cx="10" cy="10" r="6"/><path d="M15 15l6 6"/></svg>
         <label>Filter Periode Bulan
@@ -2417,7 +2589,7 @@ function lap() {
     ["nr", "Neraca"],
     ["cf", "Arus Kas"],
     ["gl", "Buku Besar"],
-    ["cek", "Cek Data"]
+    ["cek", "Cek Data (Rekonsiliasi)"]
   ];
   return (
     `<div class="subtabs no-print" role="tablist">` +
@@ -3438,7 +3610,7 @@ function jual() {
       <div class="form">
         <label>Toko Default / Auto
           <select id="u-toko">
-            <option value="auto">Auto</option>
+            <option value="auto">Auto (deteksi dari nama file)</option>
             ${Object.keys(TK).map(k => `<option value="${k}">${TK[k]}</option>`).join("")}
           </select>
         </label>
@@ -5209,15 +5381,140 @@ function mulai() {
   document.getElementById("btn-demo").onclick = () => { tutupDrawer(); mintaDemo(); };
   document.getElementById("btn-backup").onclick = () => { S.tab = "data"; tutupDrawer(); draw(); };
 
-  muatLokal();
-  rebuildAK();
-  setStatus("Menghubungkan ke Firebase Firestore…");
-  draw();
-  initFirebase().then(ready => ready ? sambungOnline() : false).then(ok => {
-    if (!ok) {
-      setStatus("Mode offline · data lokal", true);
+  const gate = document.getElementById("auth-gate");
+  const authLoading = document.getElementById("auth-loading");
+  const authForm = document.getElementById("auth-form");
+  const authEmail = document.getElementById("auth-email");
+  const authPass = document.getElementById("auth-pass");
+  const authErr = document.getElementById("auth-err");
+  const authSubmit = document.getElementById("auth-submit");
+  const offlineBox = document.getElementById("auth-offline-box");
+  const userChip = document.getElementById("user-chip");
+  const btnLogout = document.getElementById("btn-logout");
+
+  const togglePw = document.getElementById("auth-toggle-pw");
+  if (togglePw && authPass) {
+    togglePw.onclick = () => {
+      const show = authPass.type === "password";
+      authPass.type = show ? "text" : "password";
+      togglePw.setAttribute("aria-label", show ? "Sembunyikan password" : "Tampilkan password");
+    };
+  }
+
+  let appLoaded = false;
+  function bukaAplikasi(labelUser, isOnlineAuth) {
+    if (gate) gate.style.display = "none";
+    if (shell) shell.style.display = "flex";
+    if (userChip) {
+      userChip.textContent = "👤 " + labelUser;
+      userChip.style.display = "inline-flex";
     }
-    draw();
+    if (!appLoaded) {
+      appLoaded = true;
+      muatLokal();
+      rebuildAK();
+      draw();
+    }
+    if (isOnlineAuth) {
+      setStatus("Menghubungkan ke Firebase Firestore…");
+      sambungOnline().then(ok => {
+        if (!ok) setStatus("Gagal memuat Firestore · data lokal", true);
+        draw();
+      });
+    } else {
+      setStatus("Mode pratinjau offline · data lokal", true);
+      draw();
+    }
+  }
+
+  function kunciAplikasi() {
+    ONLINE = false;
+    appLoaded = false;
+    tutupDrawer();
+    if (shell) shell.style.display = "none";
+    if (gate) gate.style.display = "flex";
+    if (authLoading) authLoading.style.display = "none";
+    if (authForm) authForm.style.display = "flex";
+    if (userChip) userChip.style.display = "none";
+    if (authPass) authPass.value = "";
+  }
+
+  if (btnLogout) {
+    btnLogout.onclick = async () => {
+      if (window.fbAuth && window.fbSignOut) {
+        try { await window.fbSignOut(window.fbAuth); } catch (e) {}
+      }
+      kunciAplikasi();
+    };
+  }
+
+  const btnOfflineEnter = document.getElementById("btn-offline-enter");
+  if (btnOfflineEnter) {
+    btnOfflineEnter.onclick = () => bukaAplikasi("Mode Offline", false);
+  }
+
+  const pesanErrorAuth = code => {
+    if (code === "auth/invalid-credential" || code === "auth/wrong-password" || code === "auth/user-not-found") {
+      return "Email atau password salah. Periksa kembali akun yang dibuat di Firebase Authentication.";
+    }
+    if (code === "auth/invalid-email") return "Format email tidak valid.";
+    if (code === "auth/too-many-requests") return "Terlalu banyak percobaan gagal. Tunggu beberapa menit lalu coba lagi.";
+    if (code === "auth/network-request-failed") return "Gagal terhubung ke internet. Periksa koneksi Anda.";
+    return "Gagal masuk (" + (code || "error") + "). Pastikan Email/Password sudah diaktifkan di Firebase Console.";
+  };
+
+  if (authForm) {
+    authForm.onsubmit = async ev => {
+      ev.preventDefault();
+      const email = (authEmail?.value || "").trim();
+      const pass = authPass?.value || "";
+      if (!email || !pass) {
+        if (authErr) authErr.textContent = "Masukkan email dan password pemilik terlebih dahulu.";
+        return;
+      }
+      if (ALLOWED_OWNER_EMAIL && email.toLowerCase() !== ALLOWED_OWNER_EMAIL.toLowerCase()) {
+        if (authErr) authErr.textContent = "Akses ditolak. Akun ini bukan email pemilik yang diizinkan.";
+        return;
+      }
+      if (!window.fbAuth || !window.fbSignIn) {
+        if (authErr) authErr.textContent = "Server login Firebase belum tersambung. Gunakan tombol Mode Pratinjau Offline di bawah jika sedang offline.";
+        return;
+      }
+      if (authErr) authErr.textContent = "";
+      if (authSubmit) { authSubmit.disabled = true; authSubmit.textContent = "Memeriksa akun…"; }
+      try {
+        if (window.fbSetPersistence && window.fbLocalPersistence) {
+          await window.fbSetPersistence(window.fbAuth, window.fbLocalPersistence);
+        }
+        await window.fbSignIn(window.fbAuth, email, pass);
+      } catch (err) {
+        if (authErr) authErr.textContent = pesanErrorAuth(err.code);
+      } finally {
+        if (authSubmit) { authSubmit.disabled = false; authSubmit.textContent = "Masuk ke Pembukuan"; }
+      }
+    };
+  }
+
+  initFirebase().then(ready => {
+    if (ready && window.fbAuth && window.fbOnAuth) {
+      window.fbOnAuth(window.fbAuth, async user => {
+        if (user) {
+          if (ALLOWED_OWNER_EMAIL && (user.email || "").toLowerCase() !== ALLOWED_OWNER_EMAIL.toLowerCase()) {
+            try { await window.fbSignOut(window.fbAuth); } catch (e) {}
+            if (authErr) authErr.textContent = "Akun ini tidak terdaftar sebagai pemilik.";
+            kunciAplikasi();
+            return;
+          }
+          bukaAplikasi(user.email || "Pemilik", true);
+        } else {
+          kunciAplikasi();
+        }
+      });
+    } else {
+      if (authLoading) authLoading.style.display = "none";
+      if (authForm) authForm.style.display = "flex";
+      if (offlineBox) offlineBox.style.display = "block";
+    }
   });
 }
 
