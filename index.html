@@ -10,22 +10,23 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
 :root {
-  --bg: #f3f5f8;
+  --bg: #eef6ff;
   --sf: #ffffff;
-  --sf2: #f7f9fc;
-  --ink: #182625;
-  --mut: #64748b;
-  --ln: #e2e8f0;
-  --ac: #0f766e;
-  --ac-soft: rgba(15, 118, 110, 0.10);
-  --ac-hov: #0d635c;
-  --neg: #c53030;
-  --pos: #0f766e;
+  --sf2: #f4f9ff;
+  --sidebar-bg: #f7fbff;
+  --ink: #10243e;
+  --mut: #5b7390;
+  --ln: #d6e6fa;
+  --ac: #2b7de9;
+  --ac-soft: rgba(43, 125, 233, 0.11);
+  --ac-hov: #1e6ad1;
+  --neg: #d12e3a;
+  --pos: #0f8a5f;
   --warn: #d97706;
   --sidebar-w: 244px;
   --sidebar-w-mini: 68px;
   --topbar-h: 58px;
-  --shadow: 0 2px 6px rgba(24, 38, 37, 0.05), 0 1px 2px rgba(24, 38, 37, 0.04);
+  --shadow: 0 2px 8px rgba(30, 90, 170, 0.06), 0 1px 2px rgba(30, 90, 170, 0.04);
   box-sizing: border-box;
   padding-top: env(safe-area-inset-top, 0px);
   padding-bottom: env(safe-area-inset-bottom, 0px);
@@ -33,36 +34,38 @@
 }
 @media(prefers-color-scheme:dark) {
   :root:not([data-theme="light"]) {
-    --bg: #0f1716;
-    --sf: #172322;
-    --sf2: #1d2b2a;
-    --ink: #e6efed;
-    --mut: #94a6a3;
-    --ln: #283836;
-    --ac: #2dd4bf;
-    --ac-soft: rgba(45, 212, 191, 0.14);
-    --ac-hov: #14b8a6;
+    --bg: #0d1624;
+    --sf: #132033;
+    --sf2: #192a42;
+    --sidebar-bg: #101b2c;
+    --ink: #e8f1fc;
+    --mut: #93acc9;
+    --ln: #253a57;
+    --ac: #60a5fa;
+    --ac-soft: rgba(96, 165, 250, 0.16);
+    --ac-hov: #3b82f6;
     --neg: #f87171;
     --pos: #34d399;
     --warn: #fbbf24;
-    --shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+    --shadow: 0 4px 12px rgba(0, 0, 0, 0.28);
     color-scheme: dark;
   }
 }
 :root[data-theme="dark"] {
-  --bg: #0f1716;
-  --sf: #172322;
-  --sf2: #1d2b2a;
-  --ink: #e6efed;
-  --mut: #94a6a3;
-  --ln: #283836;
-  --ac: #2dd4bf;
-  --ac-soft: rgba(45, 212, 191, 0.14);
-  --ac-hov: #14b8a6;
+  --bg: #0d1624;
+  --sf: #132033;
+  --sf2: #192a42;
+  --sidebar-bg: #101b2c;
+  --ink: #e8f1fc;
+  --mut: #93acc9;
+  --ln: #253a57;
+  --ac: #60a5fa;
+  --ac-soft: rgba(96, 165, 250, 0.16);
+  --ac-hov: #3b82f6;
   --neg: #f87171;
   --pos: #34d399;
   --warn: #fbbf24;
-  --shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+  --shadow: 0 4px 12px rgba(0, 0, 0, 0.28);
   color-scheme: dark;
 }
 *, *::before, *::after { box-sizing: border-box; }
@@ -88,7 +91,7 @@ body {
   left: 0;
   bottom: 0;
   width: var(--sidebar-w);
-  background: var(--sf);
+  background: var(--sidebar-bg, var(--sf));
   border-right: 1px solid var(--ln);
   display: flex;
   flex-direction: column;
@@ -115,7 +118,7 @@ body {
   width: 34px;
   height: 34px;
   border-radius: 9px;
-  background: linear-gradient(135deg, #0f766e, #14b8a6);
+  background: linear-gradient(135deg, #60a5fa, #2b7de9);
   color: #fff;
   display: grid;
   place-items: center;
@@ -602,52 +605,133 @@ tr.t td { font-weight: 700; border-top: 2px solid var(--ink); }
 .x:hover { background: rgba(197, 48, 48, 0.1); }
 .empty { color: var(--mut); padding: 18px 0; text-align: center; font-style: italic; }
 
-/* Full-Face / Full-Width Tabel Daftar Jurnal Umum */
+/* Daftar Jurnal Umum — Opsi 3: Header Transaksi + Sub-baris Akun Ringkas */
 .panel-jurnal-full {
-  overflow-x: auto;
-  padding: 14px 14px;
+  padding: 16px 18px;
 }
 .tbl-jurnal {
   width: 100%;
-  min-width: 860px;
-  table-layout: fixed;
   border-collapse: collapse;
-  font-size: clamp(11px, 0.98vw, 12.6px);
+  font-size: 13.2px;
 }
-.tbl-jurnal th,
-.tbl-jurnal td {
-  padding: 6px 5px;
+.tbl-jurnal thead th {
+  padding: 9px 12px;
+  font-size: 11.5px;
+  letter-spacing: 0.03em;
+  background: var(--sf2);
+  border-bottom: 2px solid var(--ln);
+}
+.tbl-jurnal thead th:nth-child(1) { text-align: left; }
+.tbl-jurnal thead th:nth-child(2),
+.tbl-jurnal thead th:nth-child(3) { width: 160px; text-align: right; white-space: nowrap; }
+.tbl-jurnal tr.jr-head td {
+  background: var(--sf2);
+  border-top: 2px solid var(--ln);
+  border-bottom: 1px solid var(--ln);
+  padding: 8px 12px;
+  text-align: left;
   white-space: normal;
-  word-break: break-word;
-  overflow-wrap: anywhere;
-  vertical-align: top;
-  line-height: 1.35;
 }
-.tbl-jurnal th {
-  font-size: clamp(10px, 0.88vw, 11.5px);
-  letter-spacing: 0.01em;
+.tbl-jurnal tbody tr.jr-head:first-child td {
+  border-top: 0;
+}
+.jr-head-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.jr-head-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-width: 0;
+}
+.jr-num {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--mut);
+  background: var(--sf);
+  border: 1px solid var(--ln);
+  border-radius: 5px;
+  padding: 1px 6px;
+  font-variant-numeric: tabular-nums;
+}
+.jr-tgl {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--ac);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.jr-ket {
+  font-weight: 700;
+  color: var(--ink);
+  word-break: break-word;
+}
+.jr-ref {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 99px;
+  background: rgba(43, 125, 233, 0.12);
+  color: var(--ac);
+  white-space: nowrap;
+}
+.jr-ref.hutang {
+  background: rgba(217, 119, 6, 0.15);
+  color: var(--warn);
+}
+.tbl-jurnal tr.jr-line td {
+  padding: 7px 12px;
+  border-bottom: 1px dashed var(--ln);
   vertical-align: middle;
 }
-.tbl-jurnal th:nth-child(1), .tbl-jurnal td:nth-child(1) { width: 3%; text-align: center; }
-.tbl-jurnal th:nth-child(2), .tbl-jurnal td:nth-child(2) { width: 7.5%; text-align: left; white-space: nowrap; font-variant-numeric: tabular-nums; }
-.tbl-jurnal th:nth-child(3), .tbl-jurnal td:nth-child(3) { width: 7.5%; text-align: left; }
-.tbl-jurnal th:nth-child(4), .tbl-jurnal td:nth-child(4) { width: 5.2%; text-align: left; }
-.tbl-jurnal th:nth-child(5), .tbl-jurnal td:nth-child(5) { width: 8.3%; text-align: left; color: var(--mut); }
-.tbl-jurnal th:nth-child(6), .tbl-jurnal td:nth-child(6) { width: 13.5%; text-align: left; font-weight: 600; }
-.tbl-jurnal th:nth-child(7), .tbl-jurnal td:nth-child(7) { width: 5.8%; text-align: center; white-space: nowrap; }
-.tbl-jurnal th:nth-child(8), .tbl-jurnal td:nth-child(8) { width: 17.2%; text-align: left; }
-.tbl-jurnal th:nth-child(9), .tbl-jurnal td:nth-child(9) { width: 9%; text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
-.tbl-jurnal th:nth-child(10), .tbl-jurnal td:nth-child(10) { width: 9%; text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
-.tbl-jurnal th:nth-child(11), .tbl-jurnal td:nth-child(11) { width: 9%; text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; font-weight: 600; }
-.tbl-jurnal th:nth-child(12), .tbl-jurnal td:nth-child(12) { width: 5%; text-align: center; }
-.tbl-jurnal code {
-  font-size: clamp(10px, 0.88vw, 11.5px);
-  background: var(--sf2);
-  padding: 1px 4px;
-  border-radius: 4px;
+.tbl-jurnal tr.jr-line.jr-last td {
+  border-bottom: 1px solid var(--ln);
 }
-.tbl-jurnal .badge { padding: 2px 5px; font-size: 10px; }
-.tbl-jurnal .x { padding: 2px 5px; font-size: 11px; }
+.tbl-jurnal tr.jr-line td:nth-child(1) {
+  text-align: left;
+  white-space: normal;
+}
+.tbl-jurnal tr.jr-line.is-kredit td:nth-child(1) {
+  padding-left: 34px;
+}
+.tbl-jurnal tr.jr-line td:nth-child(2),
+.tbl-jurnal tr.jr-line td:nth-child(3) {
+  text-align: right;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+.jr-kode {
+  display: inline-block;
+  font-family: ui-monospace, monospace;
+  font-size: 11.5px;
+  background: var(--sf2);
+  border: 1px solid var(--ln);
+  padding: 1px 6px;
+  border-radius: 4px;
+  margin-right: 6px;
+  color: var(--mut);
+}
+.jr-akun {
+  font-weight: 600;
+  color: var(--ink);
+}
+.jr-kat {
+  font-size: 11.5px;
+  color: var(--mut);
+  margin-left: 6px;
+}
+@media (max-width: 640px) {
+  .tbl-jurnal thead th:nth-child(2),
+  .tbl-jurnal thead th:nth-child(3) { width: 110px; }
+  .tbl-jurnal tr.jr-line.is-kredit td:nth-child(1) { padding-left: 20px; }
+  .jr-kat { display: none; }
+}
 
 /* Executive Dashboard Styles */
 .db h1 {
@@ -839,8 +923,8 @@ tr.t td { font-weight: 700; border-top: 2px solid var(--ink); }
 .rl .sb .nm { font-weight: 600; }
 
 /* Highlight Kolom Profit Harian */
-.col-profit { background: rgba(15, 118, 110, 0.08); font-weight: 800; }
-th.col-profit { background: rgba(15, 118, 110, 0.16); color: var(--ac); }
+.col-profit { background: rgba(43, 125, 233, 0.09); font-weight: 800; }
+th.col-profit { background: rgba(43, 125, 233, 0.16); color: var(--ac); }
 
 .jl {
   display: grid;
@@ -946,7 +1030,7 @@ tr:hover .sticky-col-right { background: var(--sf2); }
         <button type="button" class="icon-btn btn-mobile-menu" id="btn-menu-mobile" aria-label="Buka Menu Navigasi" title="Menu">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
         </button>
-        <h1 class="topbar-title" id="page-title"></h1>
+        <h1 class="topbar-title" id="page-title">Dashboard</h1>
       </div>
       <div class="topbar-right">
         <div id="sync" style="font-size:12px;color:var(--mut)" role="status"></div>
@@ -2333,7 +2417,7 @@ function lap() {
     ["nr", "Neraca"],
     ["cf", "Arus Kas"],
     ["gl", "Buku Besar"],
-    ["cek", "Cek Data (Rekonsiliasi)"]
+    ["cek", "Cek Data"]
   ];
   return (
     `<div class="subtabs no-print" role="tablist">` +
@@ -2406,28 +2490,54 @@ function profitHarian() {
   const tkFilter = S.phToko || "all";
 
   const mapHarian = {};
+  const getRow = tg => (mapHarian[tg] = mapHarian[tg] || {
+    tgl: tg,
+    orders: new Set(),
+    qty: 0,
+    kotor: 0,
+    voucher: 0,
+    admin: 0,
+    hpp: 0,
+    iklan: 0
+  });
+
   P.forEach(p => {
     const d = dt(p.tgl);
     if (d.getFullYear() != S.thn || !ms.includes(d.getMonth())) return;
     const tk = p.toko || "java";
     if (tkFilter !== "all" && tk !== tkFilter) return;
 
-    const tg = p.tgl;
-    const row = (mapHarian[tg] = mapHarian[tg] || {
-      tgl: tg,
-      orders: new Set(),
-      qty: 0,
-      kotor: 0,
-      voucher: 0,
-      admin: 0,
-      hpp: 0
-    });
+    const row = getRow(p.tgl);
     row.orders.add(p.no);
     row.qty += p.jml || 0;
     row.kotor += (p.hrg || 0) * (p.jml || 0);
     row.voucher += p.vc || 0;
     row.admin += p.adm || 0;
     row.hpp += HC[tk + "|" + p.tgl + "|" + p.no + "|" + p.sku] || 0;
+  });
+
+  const deteksiTokoIklan = ket => {
+    const k = String(ket || "").toLowerCase();
+    if (/(kong|kong\s*fat|kf|mall)/.test(k)) return "kong";
+    if (/(java|jv)/.test(k)) return "java";
+    if (/(lazada|laz)/.test(k)) return "lazada";
+    if (/(tiktok|tik\s*tok|tt)/.test(k)) return "tiktok";
+    return null;
+  };
+
+  semua().forEach(j => {
+    const d = dt(j.tgl);
+    if (d.getFullYear() != S.thn || !ms.includes(d.getMonth())) return;
+    const amtIklan = (j.lines || [])
+      .filter(l => l.akun === "6-60001")
+      .reduce((s, l) => s + (l.d || 0) - (l.k || 0), 0);
+    if (!amtIklan) return;
+    if (tkFilter !== "all") {
+      const tkKet = deteksiTokoIklan(j.ket);
+      if (tkKet !== tkFilter) return;
+    }
+    const row = getRow(String(j.tgl).slice(0, 10));
+    row.iklan += amtIklan;
   });
 
   const rows = Object.values(mapHarian)
@@ -2447,6 +2557,7 @@ function profitHarian() {
   const totAdmin = rows.reduce((s, r) => s + r.admin, 0);
   const totHpp = rows.reduce((s, r) => s + r.hpp, 0);
   const totProfit = rows.reduce((s, r) => s + r.profit, 0);
+  const totIklan = rows.reduce((s, r) => s + r.iklan, 0);
   const avgMargin = totBersih > 0 ? (totProfit / totBersih) * 100 : 0;
 
   const per = S.bln == "ytd" ? "Januari – Desember " + S.thn : BL[+S.bln] + " " + S.thn;
@@ -2481,12 +2592,17 @@ function profitHarian() {
       <div class="kpi">
         <span>Total Profit Harian (Kotor)</span>
         <b class="${totProfit < 0 ? "neg" : "pos"}">${rp(totProfit)}</b>
-        <small>Akumulasi ${rows.length} hari aktif berjualan</small>
+        <small>Akumulasi ${rows.length} hari tercatat</small>
       </div>
       <div class="kpi">
         <span>Rata-Rata Margin Profit</span>
         <b class="${avgMargin < 0 ? "neg" : "pos"}">${avgMargin.toFixed(1)}%</b>
         <small>${totOrder} pesanan · ${totQty} pcs terjual</small>
+      </div>
+      <div class="kpi">
+        <span>Total Biaya Iklan</span>
+        <b class="${totIklan > 0 ? "warn" : ""}">${rp(totIklan)}</b>
+        <small>Profit setelah iklan: <strong class="${totProfit - totIklan < 0 ? "neg" : "pos"}">${rp(totProfit - totIklan)}</strong></small>
       </div>
     </div>
     <div class="panel scroll">
@@ -2494,9 +2610,6 @@ function profitHarian() {
         <span>LAPORAN KEUNTUNGAN KOTOR HARIAN (${esc(namaTokoFilter)})</span>
         <span style="font-size:12.5px;color:var(--mut);font-weight:500">Periode ${per}</span>
       </h2>
-      <p style="color:var(--mut);font-size:12.5px;margin-top:-6px;margin-bottom:12px">
-        Rumus: <b>Profit Harian</b> = (Penjualan Kotor − Voucher Toko) − Biaya Admin Platform − HPP Modal Barang.
-      </p>
       ${
         rows.length
           ? `<table id="tbl-ph">
@@ -2511,6 +2624,7 @@ function profitHarian() {
                   <th>HPP Modal</th>
                   <th class="col-profit">Profit Harian</th>
                   <th>Margin (%)</th>
+                  <th>Biaya Iklan</th>
                 </tr>
               </thead>
               <tbody>
@@ -2518,14 +2632,15 @@ function profitHarian() {
                   .map(
                     r => `<tr>
                       <td><b>${r.tgl}</b></td>
-                      <td>${r.jmlOrder}</td>
-                      <td>${r.qty}</td>
-                      <td>${rp(r.kotor)}</td>
+                      <td>${r.jmlOrder || "–"}</td>
+                      <td>${r.qty || "–"}</td>
+                      <td>${r.kotor ? rp(r.kotor) : "–"}</td>
                       <td>${r.voucher ? rp(r.voucher) : "–"}</td>
                       <td>${r.admin ? rp(r.admin) : "–"}</td>
-                      <td>${rp(r.hpp)}</td>
-                      <td class="col-profit ${r.profit < 0 ? "neg" : "pos"}">${rp(r.profit)}</td>
-                      <td><span class="badge ${r.margin >= 15 ? "ok" : r.margin >= 0 ? "wn" : "no"}">${r.margin.toFixed(1)}%</span></td>
+                      <td>${r.hpp ? rp(r.hpp) : "–"}</td>
+                      <td class="col-profit ${r.profit < 0 ? "neg" : "pos"}">${r.kotor || r.profit ? rp(r.profit) : "–"}</td>
+                      <td>${r.bersih > 0 ? `<span class="badge ${r.margin >= 15 ? "ok" : r.margin >= 0 ? "wn" : "no"}">${r.margin.toFixed(1)}%</span>` : "–"}</td>
+                      <td class="${r.iklan > 0 ? "warn" : ""}"><b>${r.iklan ? rp(r.iklan) : "–"}</b></td>
                     </tr>`
                   )
                   .join("")}
@@ -2541,10 +2656,11 @@ function profitHarian() {
                   <td>${rp(totHpp)}</td>
                   <td class="col-profit ${totProfit < 0 ? "neg" : "pos"}">${rp(totProfit)}</td>
                   <td>${avgMargin.toFixed(1)}%</td>
+                  <td class="${totIklan > 0 ? "warn" : ""}">${rp(totIklan)}</td>
                 </tr>
               </tfoot>
             </table>`
-          : `<div class="empty">Belum ada transaksi penjualan pada periode dan filter toko ini.</div>`
+          : `<div class="empty">Belum ada transaksi penjualan atau biaya iklan pada periode dan filter toko ini.</div>`
       }
     </div>`
   );
@@ -2881,29 +2997,37 @@ function jr() {
   const piutangManualOpts = HP.filter(h => h.tipe == "piutang" && !isPiutangToko(h.no) && (h.nom - (h.bayar || 0)) > 0).map(h => `<option value="${esc(h.tipe + "|" + h.no)}">${esc(h.no + " " + h.pihak)}</option>`).join("");
   const hutangOpts = HP.filter(h => h.tipe == "hutang" && (h.nom - (h.bayar || 0)) > 0).map(h => `<option value="${esc(h.tipe + "|" + h.no)}">${esc(h.no + " " + h.pihak)}</option>`).join("");
 
-  let no = 0;
-  const rows = E.map(j => {
-    let bal = 0;
-    return (j.lines || [])
+  const rows = E.map((j, idx) => {
+    const lines = j.lines || [];
+    const refBadge = j.ref
+      ? `<span class="jr-ref ${j.ref.tipe == "hutang" ? "hutang" : ""}">${j.ref.tipe == "hutang" ? "Hutang" : "Piutang"}: ${esc(j.ref.no)}</span>`
+      : "";
+    const aksi = j.auto
+      ? '<span class="badge ok">Otomatis</span>'
+      : `<button type="button" class="x" data-id="${esc(j.id)}">Hapus</button>`;
+    const headRow = `<tr class="jr-head"><td colspan="3">
+      <div class="jr-head-bar">
+        <div class="jr-head-meta">
+          <span class="jr-num">#${idx + 1}</span>
+          <span class="jr-tgl">${j.tgl}</span>
+          <span class="jr-ket">${esc(j.ket || "Jurnal Umum")}</span>
+          ${refBadge}
+        </div>
+        <div>${aksi}</div>
+      </div>
+    </td></tr>`;
+    const subRows = lines
       .map((l, i) => {
-        bal += (l.d || 0) - (l.k || 0);
-        const rf = i ? null : j.ref;
-        return `<tr>
-          <td>${++no}</td>
-          <td>${j.tgl}</td>
-          <td>${rf && rf.tipe == "piutang" ? esc(rf.no) : ""}</td>
-          <td>${rf && rf.tipe == "hutang" ? esc(rf.no) : ""}</td>
-          <td>${KT[l.akun[0]] || ""}</td>
-          <td>${esc(nama(l.akun))}</td>
-          <td><code>${esc(l.akun)}</code></td>
-          <td style="text-align:left">${esc(j.ket || "")}</td>
-          <td>${l.d ? rp(l.d) : ""}</td>
-          <td>${l.k ? rp(l.k) : ""}</td>
-          <td>${rp(bal)}</td>
-          <td>${i ? "" : j.auto ? '<span class="badge ok">Otomatis</span>' : `<button type="button" class="x" data-id="${esc(j.id)}">Hapus</button>`}</td>
+        const isK = (l.k || 0) > 0 && !(l.d || 0);
+        const isLast = i === lines.length - 1;
+        return `<tr class="jr-line${isK ? " is-kredit" : ""}${isLast ? " jr-last" : ""}">
+          <td><span class="jr-kode">${esc(l.akun)}</span><span class="jr-akun">${esc(nama(l.akun))}</span><span class="jr-kat">· ${KT[l.akun[0]] || ""}</span></td>
+          <td>${l.d ? rp(l.d) : "–"}</td>
+          <td>${l.k ? rp(l.k) : "–"}</td>
         </tr>`;
       })
       .join("");
+    return headRow + subRows;
   }).join("");
 
   return `<div class="panel">
@@ -2942,10 +3066,10 @@ function jr() {
     </h2>
     ${
       rows
-        ? `<table class="tbl-jurnal" id="tbl-jurnal">
-            <thead><tr><th>No</th><th>Tanggal</th><th>No. Piutang</th><th>No. Hutang</th><th>Kategori</th><th>Nama Akun</th><th>Kode</th><th>Deskripsi Transaksi</th><th>Debet</th><th>Kredit</th><th>Balance</th><th></th></tr></thead>
+        ? `<div class="scroll"><table class="tbl-jurnal" id="tbl-jurnal">
+            <thead><tr><th>Akun &amp; Keterangan Transaksi</th><th>Debet</th><th>Kredit</th></tr></thead>
             <tbody>${rows}</tbody>
-          </table>`
+          </table></div>`
         : '<div class="empty">Belum ada jurnal yang cocok.</div>'
     }
   </div>`;
@@ -3314,7 +3438,7 @@ function jual() {
       <div class="form">
         <label>Toko Default / Auto
           <select id="u-toko">
-            <option value="auto">Auto (deteksi dari nama file)</option>
+            <option value="auto">Auto</option>
             ${Object.keys(TK).map(k => `<option value="${k}">${TK[k]}</option>`).join("")}
           </select>
         </label>
@@ -3996,8 +4120,8 @@ function inv() {
             <th title="Barang Keluar / Terjual">Jual</th>
             <th title="Penyesuaian Opname Sebelumnya">Opname</th>
             <th title="Stok Buku / Pembukuan">Stok Buku</th>
-            <th style="background:rgba(15,118,110,0.12);color:var(--ac);text-align:center">Fisik (Aktual)</th>
-            <th style="background:rgba(15,118,110,0.12);color:var(--ac);text-align:center">Selisih</th>
+            <th style="background:rgba(43,125,233,0.12);color:var(--ac);text-align:center">Fisik (Aktual)</th>
+            <th style="background:rgba(43,125,233,0.12);color:var(--ac);text-align:center">Selisih</th>
             <th title="HPP Rata-rata Bergerak">HPP Satuan</th>
             <th title="Nilai Total Stok Akhir">Nilai Akhir</th>
             <th class="sticky-col-right" style="text-align:center;width:80px">Aksi</th>
@@ -4031,10 +4155,10 @@ function inv() {
                   : `<span class="badge ${penyesuaian > 0 ? "ok" : "no"}" style="padding:1px 6px;font-size:11px">${penyesuaian > 0 ? "+" + penyesuaian : penyesuaian}</span>`
               }</td>
               <td class="${buku < 0 ? "neg" : ""}"><b>${buku}</b></td>
-              <td style="background:rgba(15,118,110,0.05);text-align:center">
+              <td style="background:rgba(43,125,233,0.05);text-align:center">
                 <input type="number" min="0" data-opsku="${esc(i.sku)}" data-buku="${buku}" value="${hasDraft ? esc(draftVal) : ""}" placeholder="${buku}" style="width:68px;padding:3px 6px;text-align:right;font-weight:700;font-size:12px;border-color:${hasDraft && selisih !== 0 ? "var(--ac)" : "var(--ln)"}">
               </td>
-              <td style="background:rgba(15,118,110,0.05);text-align:center">
+              <td style="background:rgba(43,125,233,0.05);text-align:center">
                 <span data-opdiff="${esc(i.sku)}">${
                   !hasDraft
                     ? `<span style="color:var(--mut)">–</span>`
@@ -4416,29 +4540,40 @@ function beli() {
   const hari = hariIni();
   const L = [...BE].sort((a, b) => b.tgl.localeCompare(a.tgl));
   const tot = L.reduce((s, b) => s + b.jml * b.hrg, 0);
+  const skuMap = new Map();
+  SKUS.forEach(x => skuMap.set(x.sku.toLowerCase(), { sku: x.sku, nama: x.nama }));
+  INV.forEach(i => skuMap.set(i.sku.toLowerCase(), { sku: i.sku, nama: i.nama }));
+  const skuOpts = [...skuMap.values()]
+    .sort((a, b) => a.sku.localeCompare(b.sku))
+    .map(i => `<option value="${esc(i.sku + " — " + i.nama)}"></option>`)
+    .join("");
   return `<div class="kpis">
     <div class="kpi"><span>Total Pembelian Persediaan</span><b>${rp(tot)}</b></div>
   </div>
   <div class="panel">
     <h2>Catat Pembelian Barang Dagang (Restock)</h2>
     ${
-      INV.length
+      skuMap.size
         ? `<div class="form">
             <label>Tanggal<input type="date" id="b-tgl" value="${hari}"></label>
             <label>Supplier / Toko<input id="b-toko" placeholder="Nama distributor / supplier"></label>
-            <label>Barang (SKU)<select id="b-sku">${INV.map(i => `<option value="${esc(i.sku)}">${esc(i.sku + " — " + i.nama)}</option>`).join("")}</select></label>
-            <label>Jumlah Masuk<input type="number" id="b-jml" min="1" value="10"></label>
-            <label>Harga Beli Satuan (Rp)<input type="number" id="b-hrg" min="0" value="${INV[0]?.hrg || 0}"></label>
+            <label>Barang (SKU)
+              <input id="b-sku" list="list-b-sku" placeholder="Ketik SKU atau nama barang..." autocomplete="off">
+              <datalist id="list-b-sku">${skuOpts}</datalist>
+            </label>
+            <label>Jumlah Masuk<input type="number" id="b-jml" min="1" placeholder="Masukkan jumlah"></label>
+            <label>Harga Beli Satuan (Rp)<input type="number" id="b-hrg" min="0" placeholder="Masukkan harga satuan"></label>
             <label>Dibayar Dari
               <select id="b-bayar">
+                <option value="" selected disabled>-- Pilih pembayaran --</option>
                 ${kasOp()}
                 <option value="2-20100">Hutang Usaha (Tempo / Belum Dibayar)</option>
               </select>
             </label>
             <button class="btn" type="button" id="b-add">Simpan Pembelian</button>
           </div>
-          <div id="b-err" class="neg" role="alert"></div>`
-        : '<div class="empty">Tambahkan produk di Persediaan Barang dulu.</div>'
+          <div id="b-err" class="neg" role="alert" style="margin-top:6px"></div>`
+        : '<div class="empty">Tambahkan produk di Persediaan Barang atau Setup SKU dulu.</div>'
     }
   </div>
   <div class="panel scroll">
@@ -4466,26 +4601,40 @@ function beli() {
 }
 
 function bindB() {
-  const skSel = document.getElementById("b-sku");
-  if (skSel) {
-    skSel.onchange = () => {
-      const f = INV.find(i => i.sku == skSel.value);
-      if (f) document.getElementById("b-hrg").value = f.hrg;
-    };
-  }
   const a = document.getElementById("b-add");
   if (a)
     a.onclick = () => {
       const v = i => document.getElementById("b-" + i).value;
-      const e = document.getElementById("b-err"), jml = +v("jml"), hrg = +v("hrg");
-      if (!v("tgl") || !(jml > 0) || v("hrg") === "") {
-        e.textContent = "Isi tanggal, jumlah, dan harga satuan.";
+      const e = document.getElementById("b-err");
+      const rawSku = v("sku").trim();
+      const jmlStr = v("jml").trim();
+      const hrgStr = v("hrg").trim();
+      const bayar = v("bayar");
+      const jml = +jmlStr, hrg = +hrgStr;
+
+      if (!v("tgl") || !rawSku || !jmlStr || !(jml > 0) || hrgStr === "" || hrg < 0 || !bayar) {
+        e.textContent = "Lengkapi tanggal, barang (SKU), jumlah masuk, harga beli satuan, dan sumber pembayaran.";
         return;
       }
+
+      const kodeInput = rawSku.split("—")[0].trim();
+      const matchInv = INV.find(i => i.sku.toLowerCase() === kodeInput.toLowerCase() || i.nama.toLowerCase() === rawSku.toLowerCase());
+      const matchMaster = SKUS.find(x => x.sku.toLowerCase() === kodeInput.toLowerCase() || x.nama.toLowerCase() === rawSku.toLowerCase());
+      const targetSku = matchInv ? matchInv.sku : matchMaster ? matchMaster.sku : null;
+
+      if (!targetSku) {
+        e.textContent = "Barang (SKU) tidak ditemukan. Ketik kode SKU atau nama barang lalu pilih dari daftar.";
+        return;
+      }
+
+      if (!matchInv && matchMaster) {
+        INV.push({ sku: matchMaster.sku, nama: matchMaster.nama, stok: 0, hrg });
+      }
+
       e.textContent = "";
       const id = uid(), tg = v("tgl");
-      BE.push({ id, tgl: tg, toko: v("toko").trim(), sku: v("sku"), jml, hrg, bayar: v("bayar") });
-      if (v("bayar") == "2-20100") {
+      BE.push({ id, tgl: tg, toko: v("toko").trim(), sku: targetSku, jml, hrg, bayar });
+      if (bayar == "2-20100") {
         const mx = Math.max(0, ...HP.filter(h => h.tipe == "hutang").map(h => +String(h.no).slice(2) || 0));
         HP.push({
           id: "b" + id,
@@ -4495,12 +4644,13 @@ function bindB() {
           tgl: tg,
           nom: jml * hrg,
           bayar: 0,
-          ket: "Pembelian " + v("sku"),
+          ket: "Pembelian " + targetSku,
           akun: "2-20100",
           log: []
         });
       }
       simpanLokal();
+      info = "Pembelian " + targetSku + " (" + jml + " pcs) berhasil dicatat.";
       draw();
     };
   document.querySelectorAll("[data-bd]").forEach(b => (b.onclick = () => {
