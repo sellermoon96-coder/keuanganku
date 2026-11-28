@@ -650,7 +650,7 @@ tr.t td { font-weight: 700; border-top: 2px solid var(--ink); }
   font-size: 15.5px;
 }
 
-/* Daftar Jurnal Umum — Opsi 3: Header Transaksi + Sub-baris Akun Ringkas */
+/* Daftar Jurnal Umum — Header Transaksi + Sub-baris Akun + Mode Ringkas/Detail */
 .panel-jurnal-full {
   padding: 16px 18px;
 }
@@ -750,6 +750,25 @@ tr.t td { font-weight: 700; border-top: 2px solid var(--ink); }
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
   font-weight: 600;
+}
+.tbl-jurnal tr.jr-sum-row {
+  cursor: pointer;
+}
+.tbl-jurnal tr.jr-sum-row td {
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--ln);
+  vertical-align: middle;
+}
+.tbl-jurnal tr.jr-sum-row td:nth-child(1) {
+  text-align: left;
+  white-space: normal;
+}
+.tbl-jurnal tr.jr-sum-row td:nth-child(2),
+.tbl-jurnal tr.jr-sum-row td:nth-child(3) {
+  text-align: right;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
 }
 .jr-kode {
   display: inline-block;
@@ -3479,13 +3498,41 @@ function jr() {
     6: "Beban Operasional"
   };
   const q = (S.jrQ || "").toLowerCase();
+  const jrTipe = S.jrTipe || "all";
+  const jrM = S.bln;
   const E = semua()
-    .filter(j => !q || (j.ket || "").toLowerCase().includes(q) || j.tgl.includes(q) || (j.lines || []).some(l => nama(l.akun).toLowerCase().includes(q) || l.akun.includes(q)))
+    .filter(j => {
+      const d = dt(j.tgl);
+      if (d.getFullYear() != S.thn) return false;
+      if (jrM !== "ytd" && d.getMonth() != +jrM) return false;
+      if (jrTipe === "manual" && j.auto) return false;
+      if (jrTipe === "auto" && !j.auto) return false;
+      if (q && !(j.ket || "").toLowerCase().includes(q) && !j.tgl.includes(q) && !(j.lines || []).some(l => nama(l.akun).toLowerCase().includes(q) || l.akun.includes(q))) return false;
+      return true;
+    })
     .sort((a, b) => b.tgl.localeCompare(a.tgl) || b.id.localeCompare(a.id));
+  const totDebet = E.reduce((s, j) => s + (j.lines || []).reduce((a, l) => a + (l.d || 0), 0), 0);
+  const totKredit = E.reduce((s, j) => s + (j.lines || []).reduce((a, l) => a + (l.k || 0), 0), 0);
 
   const piutangShopeeOpts = PS().L.filter(x => (x.net - x.bayar) > 0).map(x => `<option value="piutang|${esc(x.kode)}">${esc(x.kode + " — " + labelToko(x.toko) + " (Sisa " + rp(x.net - x.bayar) + ")")}</option>`).join("");
   const piutangManualOpts = HP.filter(h => h.tipe == "piutang" && !isPiutangToko(h.no) && (h.nom - (h.bayar || 0)) > 0).map(h => `<option value="${esc(h.tipe + "|" + h.no)}">${esc(h.no + " " + h.pihak)}</option>`).join("");
   const hutangOpts = HP.filter(h => h.tipe == "hutang" && (h.nom - (h.bayar || 0)) > 0).map(h => `<option value="${esc(h.tipe + "|" + h.no)}">${esc(h.no + " " + h.pihak)}</option>`).join("");
+
+  const jrView = S.jrView || "detail";
+  const jrExp = S.jrExp || {};
+
+  const renderDetailLines = lines =>
+    lines
+      .map((l, i) => {
+        const isK = (l.k || 0) > 0 && !(l.d || 0);
+        const isLast = i === lines.length - 1;
+        return `<tr class="jr-line${isK ? " is-kredit" : ""}${isLast ? " jr-last" : ""}">
+          <td><span class="jr-kode">${esc(l.akun)}</span><span class="jr-akun">${esc(nama(l.akun))}</span><span class="jr-kat">· ${KT[l.akun[0]] || ""}</span></td>
+          <td>${l.d ? rp(l.d) : "–"}</td>
+          <td>${l.k ? rp(l.k) : "–"}</td>
+        </tr>`;
+      })
+      .join("");
 
   const rows = E.map((j, idx) => {
     const lines = j.lines || [];
@@ -3495,6 +3542,30 @@ function jr() {
     const aksi = j.auto
       ? '<span class="badge ok">Otomatis</span>'
       : `<button type="button" class="x" data-id="${esc(j.id)}">Hapus</button>`;
+
+    if (jrView === "ringkas") {
+      const sumD = lines.reduce((s, l) => s + (l.d || 0), 0);
+      const sumK = lines.reduce((s, l) => s + (l.k || 0), 0);
+      const isOpen = !!jrExp[j.id];
+      const sumRow = `<tr class="jr-sum-row" data-jr-toggle="${esc(j.id)}">
+        <td>
+          <div class="jr-head-bar">
+            <div class="jr-head-meta">
+              <span class="jr-num">#${idx + 1}</span>
+              <span class="jr-tgl">${j.tgl}</span>
+              <span class="jr-ket">${esc(j.ket || "Jurnal Umum")}</span>
+              ${refBadge}
+              <span class="mut" style="font-size:12px">${isOpen ? "▾" : "▸"} ${lines.length} akun</span>
+            </div>
+            <div>${aksi}</div>
+          </div>
+        </td>
+        <td>${rp(sumD)}</td>
+        <td>${rp(sumK)}</td>
+      </tr>`;
+      return isOpen ? sumRow + renderDetailLines(lines) : sumRow;
+    }
+
     const headRow = `<tr class="jr-head"><td colspan="3">
       <div class="jr-head-bar">
         <div class="jr-head-meta">
@@ -3506,18 +3577,7 @@ function jr() {
         <div>${aksi}</div>
       </div>
     </td></tr>`;
-    const subRows = lines
-      .map((l, i) => {
-        const isK = (l.k || 0) > 0 && !(l.d || 0);
-        const isLast = i === lines.length - 1;
-        return `<tr class="jr-line${isK ? " is-kredit" : ""}${isLast ? " jr-last" : ""}">
-          <td><span class="jr-kode">${esc(l.akun)}</span><span class="jr-akun">${esc(nama(l.akun))}</span><span class="jr-kat">· ${KT[l.akun[0]] || ""}</span></td>
-          <td>${l.d ? rp(l.d) : "–"}</td>
-          <td>${l.k ? rp(l.k) : "–"}</td>
-        </tr>`;
-      })
-      .join("");
-    return headRow + subRows;
+    return headRow + renderDetailLines(lines);
   }).join("");
 
   const akunOptList = ["A", "L", "M", "P", "H", "B"]
@@ -3543,8 +3603,8 @@ function jr() {
         <select id="ik-akun">${bebanOpts}</select>
       </label>
       <label>Keterangan (Opsional)<input id="ik-ket" placeholder="Otomatis sesuai toko jika kosong"></label>
-      <label style="justify-content:end">
-        <span style="display:flex;align-items:center;gap:8px;padding:8px 0;cursor:pointer;color:var(--ink)">
+      <label>Pajak PPN
+        <span style="display:flex;align-items:center;gap:8px;padding:7px 11px;border:1px solid var(--ln);border-radius:8px;background:var(--sf2);cursor:pointer;color:var(--ink);font-weight:600">
           <input type="checkbox" id="ik-ppn" checked style="width:16px;height:16px;margin:0">
           <span>Otomatis + PPN 11%</span>
         </span>
@@ -3625,15 +3685,39 @@ function jr() {
   <div class="panel panel-jurnal-full">
     <h2>
       <span>Daftar Jurnal Umum (${E.length} Transaksi)</span>
-      <input id="jr-cari" placeholder="Cari deskripsi, akun, atau tanggal…" value="${esc(S.jrQ)}" style="font-weight:400;width:260px">
+      <div style="display:flex;flex-wrap:wrap;align-items:center;gap:6px">
+        <select id="jr-tipe" aria-label="Filter Jenis Jurnal" style="font-size:12.5px;font-weight:500;padding:4px 8px;border-radius:6px">
+          <option value="all" ${jrTipe === "all" ? "selected" : ""}>Semua Jenis</option>
+          <option value="manual" ${jrTipe === "manual" ? "selected" : ""}>Manual</option>
+          <option value="auto" ${jrTipe === "auto" ? "selected" : ""}>Otomatis</option>
+        </select>
+        <select id="jr-bln" aria-label="Filter Bulan Jurnal" style="font-size:12.5px;font-weight:500;padding:4px 8px;border-radius:6px">
+          <option value="ytd" ${jrM === "ytd" ? "selected" : ""}>Semua Bulan</option>
+          ${BL.map((b, i) => `<option value="${i}" ${jrM == String(i) ? "selected" : ""}>${b}</option>`).join("")}
+        </select>
+        <select id="jr-thn" aria-label="Filter Tahun Jurnal" style="font-size:12.5px;font-weight:500;padding:4px 8px;border-radius:6px">
+          ${daftarTahun().map(y => `<option value="${y}" ${y == S.thn ? "selected" : ""}>${y}</option>`).join("")}
+        </select>
+        <input id="jr-cari" placeholder="Cari deskripsi atau akun…" value="${esc(S.jrQ)}" style="font-size:12.5px;font-weight:400;padding:4px 9px;border-radius:6px;width:190px">
+        <button type="button" class="btn sm ${jrView === "ringkas" ? "" : "alt"}" data-jr-view="ringkas" title="Tampilkan 1 baris per transaksi">Ringkas</button>
+        <button type="button" class="btn sm ${jrView === "detail" ? "" : "alt"}" data-jr-view="detail" title="Tampilkan semua baris akun">Detail</button>
+        <button type="button" class="btn alt sm" id="exp-jr">📥 Ekspor Excel</button>
+      </div>
     </h2>
     ${
       rows
         ? `<div class="scroll"><table class="tbl-jurnal" id="tbl-jurnal">
             <thead><tr><th>Akun &amp; Keterangan Transaksi</th><th>Debet</th><th>Kredit</th></tr></thead>
             <tbody>${rows}</tbody>
+            <tfoot>
+              <tr class="t">
+                <td style="text-align:left">Total (${E.length} Transaksi)</td>
+                <td>${rp(totDebet)}</td>
+                <td>${rp(totKredit)}</td>
+              </tr>
+            </tfoot>
           </table></div>`
-        : '<div class="empty">Belum ada jurnal yang cocok.</div>'
+        : '<div class="empty">Belum ada jurnal pada filter ini.</div>'
     }
   </div>`;
 }
@@ -3947,6 +4031,33 @@ function bindJ() {
     simpanLokal();
     draw();
   }));
+  const jrTipeEl = document.getElementById("jr-tipe");
+  if (jrTipeEl) jrTipeEl.onchange = e => { S.jrTipe = e.target.value; draw(); };
+  const jrBlnEl = document.getElementById("jr-bln");
+  if (jrBlnEl) jrBlnEl.onchange = e => { S.bln = e.target.value; draw(); };
+  const jrThnEl = document.getElementById("jr-thn");
+  if (jrThnEl) jrThnEl.onchange = e => { S.thn = +e.target.value; draw(); };
+  document.querySelectorAll("[data-jr-view]").forEach(btn => {
+    btn.onclick = () => { S.jrView = btn.dataset.jrView; draw(); };
+  });
+  document.querySelectorAll("[data-jr-toggle]").forEach(tr => {
+    tr.onclick = ev => {
+      if (ev.target.closest("button")) return;
+      S.jrExp = S.jrExp || {};
+      const id = tr.dataset.jrToggle;
+      S.jrExp[id] = !S.jrExp[id];
+      draw();
+    };
+  });
+  const expJr = document.getElementById("exp-jr");
+  if (expJr && typeof XLSX !== "undefined") {
+    expJr.onclick = () => {
+      const tbl = document.getElementById("tbl-jurnal");
+      if (!tbl) return;
+      const wb = XLSX.utils.table_to_book(tbl, { sheet: "Jurnal Umum" });
+      simpanXlsx(wb, "Jurnal_Umum_" + S.thn + ".xlsx");
+    };
+  }
   const cr = document.getElementById("jr-cari");
   if (cr) {
     cr.oninput = e => {
